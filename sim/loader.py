@@ -31,6 +31,16 @@ VERSIONS = {
 REAL_SCORES = {"champ": 3.69, "example": 1.15, "v1": 3.21, "v3": 3.52, "v4": 2.58, "abc": 2.90, "v5": 3.19}
 
 
+class _FrozenTime:
+    @staticmethod
+    def perf_counter() -> float:
+        return 0.0
+
+    @staticmethod
+    def time() -> float:
+        return 0.0
+
+
 def _extract(name: str, rev: str) -> str:
     dst = os.path.join(CACHE, name)
     if not os.path.exists(os.path.join(dst, "bot", "mechbot", "__init__.py")):
@@ -59,6 +69,12 @@ def load_version(name: str, rev: str = None):
     mod = importlib.util.module_from_spec(spec)
     sys.modules[modname] = mod
     spec.loader.exec_module(mod)
+    # Determinism: the bot stops its route search at a wall-clock deadline, so results would depend on machine
+    # load. Freeze the clock the bot's modules see (node budgets still bound the search). Response time is
+    # measured by the engine with the real clock.
+    for sub in list(sys.modules):
+        if sub.startswith(modname + ".") and hasattr(sys.modules[sub], "time"):
+            sys.modules[sub].time = _FrozenTime
     return mod.MechBot
 
 

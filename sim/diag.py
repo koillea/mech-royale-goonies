@@ -42,6 +42,8 @@ def one(job):
     seed, name, versions = job
     loader.VERSIONS.update(versions)
     ents = [(name, loader.factory(name))] + [(f"house-{lv}", house_factory(lv)) for lv in FIELD]
+    import random
+    random.Random(seed * 7919).shuffle(ents)          # identical seating to run.py calibrate
     m = Match(run.wm(), run.rules(), ents, seed, os.path.join(ROOT, "arena"))
     places = m.run()
     me = next(x for x in m.mechs if x.name == name)
@@ -64,6 +66,9 @@ def one(job):
         "weapons": getattr(me, "death_weapons", [w["kind"] for w in me.slots if w]),
         "upgrades": me.upg_t, "laser_t": me.laser_t, "cubes": me.cubes, "missed": missed,
         "max_ms": max(ms), "avg_ms": sum(ms) / len(ms), "drone_kills": m.telemetry["drone_kills"],
+        "first_hit_t": next((x[0] for x in me.dmg_log), None),
+        "first_hit_by": next((("drone" if (x[1] or 0) >= 100 else "house" if x[1] is not None else x[2]) for x in me.dmg_log), None),
+        "modes_first_60": collections.Counter(md for tt, md in me.mode_hist if tt < 60).most_common(4),
     }
 
 
@@ -116,23 +121,80 @@ def report(rs, name):
     print(f"\nmissed kills (house bot below 25 % HP from our hits, not killed by us): {len(miss)} in {n} matches"
           f" ({len(miss) / n:.2f} per match); our mode 1.5 s after the last hit: " + ", ".join(f"{k} {v}" for k, v in mm.most_common()))
     print(f"\nresponse time: avg {statistics.mean(r['avg_ms'] for r in rs):.2f} ms, max {max(r['max_ms'] for r in rs):.1f} ms")
+    early = [r for r in dead if r["death_t"] < 60]
+    if early:
+        print(f"\nFIRST-MINUTE DEATHS: {len(early)} of {n} matches")
+        for title, key in (("mode at death", lambda r: r["mode"]), ("killed by", lambda r: f"{r['by']}/{r['weapon']}"),
+                           ("engagers", lambda r: r["engagers"]), ("where", lambda r: r["where"]),
+                           ("first damage from", lambda r: r["first_hit_by"]),
+                           ("plan at death", lambda r: (r["rationale"] or "").split(" ")[0:3] and " ".join((r["rationale"] or "").split(" ")[:3]))):
+            c = collections.Counter(key(r) for r in early)
+            print(f"  {title}: " + ", ".join(f"{k} {v}" for k, v in c.most_common(6)))
+        ft = sorted(r["first_hit_t"] for r in early if r["first_hit_t"] is not None)
+        if ft:
+            print(f"  first damage taken at: median {statistics.median(ft):.0f} s; death at median {statistics.median(r['death_t'] for r in early):.0f} s")
+        mc = collections.Counter()
+        for r in early:
+            for md, k in r["modes_first_60"]:
+                mc[md] += k
+        print("  decisions in the first minute (these matches): " + ", ".join(f"{k} {v}" for k, v in mc.most_common(6)))
+
+
+def key_metrics(rs):
+    n = len(rs)
+    dead = [r for r in rs if r["died"]]
+    full15 = [r for r in dead if r["hp15"] is not None]
+    return {
+        "score": statistics.mean(r["pts"] for r in rs),
+        "kills/match": statistics.mean(r["kills"] for r in rs),
+        "missed kills/match": sum(len(r["missed"]) for r in rs) / n,
+        "deaths outnumbered (2+)": sum(1 for r in dead if (r["engagers"] or 0) >= 2) / n,
+        "deaths in COVER": sum(1 for r in dead if r["mode"] == "COVER") / n,
+        "dead in first 60 s": sum(1 for r in dead if r["death_t"] < 60) / n,
+        "full-to-dead in 15 s": sum(1 for r in full15 if r["hp15"] >= 1300) / max(len(full15), 1),
+        "max ms": max(r["max_ms"] for r in rs),
+    }
+
+
+def compare(results, champion):
+    print("\n=== comparison on the same seeds ===")
+    names = list(results)
+    km = {nm: key_metrics(results[nm]) for nm in names}
+    print(f"{'metric':26}" + "".join(f"{nm:>12}" for nm in names))
+    for k in km[names[0]]:
+        print(f"{k:26}" + "".join(f"{km[nm][k]:12.2f}" for nm in names))
+    ch = {r["seed"]: r["pts"] for r in results[champion]}
+    for nm in names:
+        if nm == champion:
+            continue
+        d = [r["pts"] - ch[r["seed"]] for r in results[nm] if r["seed"] in ch]
+        m, se = statistics.mean(d), statistics.stdev(d) / math.sqrt(len(d))
+        verdict = "PROMISING (> 2 se)" if m > 2 * se else ("WORSE (< -2 se)" if m < -2 * se else "no clear difference")
+        print(f"\n{nm} - {champion}: {m:+.2f} points per match, se {se:.2f} (paired over {len(d)} seeds) -> {verdict}")
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--version", default="champ")
+    ap.add_argument("--versions", default="champ", help="comma list; name or name=<gitrev>; the first is the champion")
     ap.add_argument("--matches", type=int, default=100)
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--workers", type=int, default=os.cpu_count() or 2)
+    ap.add_argument("--brief", action="store_true", help="only the comparison table")
     a = ap.parse_args()
-    name = loader.split(a.version)
-    if name != "example":
-        loader._extract(name, loader.VERSIONS[name])
-    jobs = [(s, name, dict(loader.VERSIONS)) for s in range(a.seed, a.seed + a.matches)]
+    names = [loader.split(v) for v in a.versions.split(",")]
+    for nm in names:
+        if nm != "example":
+            loader._extract(nm, loader.VERSIONS[nm])
+    results = {}
     t0 = time.time()
     with Pool(a.workers) as pool:
-        rs = list(pool.imap_unordered(one, jobs))
-    report(rs, f"{name} ({time.time() - t0:.0f}s)")
+        for nm in names:
+            jobs = [(s, nm, dict(loader.VERSIONS)) for s in range(a.seed, a.seed + a.matches)]
+            results[nm] = sorted(pool.imap_unordered(one, jobs), key=lambda r: r["seed"])
+            if not a.brief:
+                report(results[nm], f"{nm} ({time.time() - t0:.0f}s)")
+    if len(names) > 1:
+        compare(results, names[0])
 
 
 if __name__ == "__main__":
