@@ -76,6 +76,7 @@ def one(job):
         "weapons": getattr(me, "death_weapons", [w["kind"] for w in me.slots if w]),
         "upgrades": me.upg_t, "laser_t": me.laser_t, "cubes": me.cubes, "missed": missed,
         "max_ms": max(ms), "avg_ms": sum(ms) / len(ms), "drone_kills": m.telemetry["drone_kills"],
+        "ms_all": [round(x, 2) for x in ms],
         "first_hit_t": next((x[0] for x in me.dmg_log), None),
         "first_hit_by": next((("drone" if (x[1] or 0) >= 100 else "house" if x[1] is not None else x[2]) for x in me.dmg_log), None),
         "modes_first_60": collections.Counter(md for tt, md in me.mode_hist if tt < 60).most_common(4),
@@ -163,6 +164,9 @@ def key_metrics(rs):
         "dead in first 60 s": sum(1 for r in dead if r["death_t"] < 60) / n,
         "full-to-dead in 15 s": sum(1 for r in full15 if r["hp15"] >= 1300) / max(len(full15), 1),
         "max ms": max(r["max_ms"] for r in rs),
+        "p99 ms": sorted(x for r in rs for x in r["ms_all"])[int(0.99 * sum(len(r["ms_all"]) for r in rs))],
+        "p99.9 ms": sorted(x for r in rs for x in r["ms_all"])[int(0.999 * sum(len(r["ms_all"]) for r in rs))],
+        "ticks > 25 ms": sum(1 for r in rs for x in r["ms_all"] if x > 25),
     }
 
 
@@ -173,6 +177,8 @@ def compare(results, champion):
     print(f"{'metric':26}" + "".join(f"{nm:>12}" for nm in names))
     for k in km[names[0]]:
         print(f"{k:26}" + "".join(f"{km[nm][k]:12.2f}" for nm in names))
+    if len(names) < 2:
+        return
     ch = {r["seed"]: r["pts"] for r in results[champion]}
     for nm in names:
         if nm == champion:
@@ -203,8 +209,7 @@ def main():
             results[nm] = sorted(pool.imap_unordered(one, jobs), key=lambda r: r["seed"])
             if not a.brief:
                 report(results[nm], f"{nm} ({time.time() - t0:.0f}s)")
-    if len(names) > 1:
-        compare(results, names[0])
+    compare(results, names[0])
 
 
 if __name__ == "__main__":
