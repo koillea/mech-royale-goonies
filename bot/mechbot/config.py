@@ -93,6 +93,18 @@ class BotConfig:
     range_laser: tuple = (60.0, 200.0)
     range_lightning: tuple = (12.0, 38.0)
 
+    # --- aim (aim.py). Shots leave along the actual torso aim (section 7 Weapons); an action applies for the next
+    # 2 ticks = 0.1 s (section 2), so the lead starts from half of that on average.
+    aim_latency_s: float = 0.05
+    track_window_s: float = 2.0          # history kept per target for prediction
+    reversals_for_mean: int = 2          # this many strafe reversals in the window: aim at the jitter's centre
+    preaim_hostile_s: float = 6.0        # keep pre-aiming at a mech that hit us this long after it hid
+    preaim_hidden_s: float = 2.0         # extrapolate a hidden mech at most this far
+    # "critical hits": the only damage multiplier on positioning is rear armour, x1.5 outside the target's
+    # 180 degree front arc (section 7 Rear armor); laser cook-off (+60 % on a mortar carrier) is automatic.
+    rear_target_bonus: float = 60.0      # target choice: a mech facing away counts as 60 m closer
+    flank_bias: float = 0.7              # chance each strafe leg is chosen to walk around toward the target's back
+
     # --- sensing: sweep the 120 degree view cone so nobody reaches our back unseen (section 8 Vision)
     scan_amp: float = 1.4
     scan_rate: float = 0.9

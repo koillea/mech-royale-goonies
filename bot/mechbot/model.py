@@ -14,6 +14,7 @@ import sys
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
+from .aim import TargetTracker, rear_exposure
 from .ballistics import aim_at, lead, mortar_pitch, mortar_time, wrap, yaw_to
 from .config import BotConfig
 from .plan import HeuristicPlanner, Hold, Plan, dist2
@@ -76,6 +77,8 @@ class MechBot:
         self.rng = random.Random(hello.get("seed", 0))
         self.planner = HeuristicPlanner(self.cfg, self.rules)
         self.mem = Memory()
+        self.tracker: TargetTracker = TargetTracker(None, self.mech_rules.get("gravity", 22.0),
+                                                    self.cfg.track_window_s, self.cfg.reversals_for_mean)
         self.wm: Optional[WorldMap] = None
         here = os.path.dirname(os.path.abspath(__file__))
         dirs = [hello.get("map", {}).get("dir"), "/arena", os.path.join(here, "..", "arena"), os.path.join(here, "..", "..", "arena")]
@@ -118,6 +121,7 @@ class MechBot:
         self.cover: Optional[Tuple[float, float]] = None
         self.cover_t = -1e9
         self.cover_from: Optional[int] = None
+        self.tracker.wm = self.wm
         gc.collect()
         gc.freeze()   # the map's objects never die: keep the collector from rescanning them mid-match
         log(f"{self.name}: init {time.time() - t0:.2f}s map={'ok' if self.wm else 'none'} "
@@ -127,6 +131,7 @@ class MechBot:
     def act(self, obs: Dict[str, Any]) -> Dict[str, Any]:
         self._t0 = time.perf_counter()
         self.mem.ingest(obs)
+        self.tracker.update(obs)
         self._update_spot(obs)
         self.hold = self._hold(obs)
         plan = self.planner.plan(obs, self.mem, self.hold)
@@ -364,6 +369,14 @@ class MechBot:
         d = dist2(pos, threat["pos"])
         if t >= self.strafe_until:
             self.strafe_sign = -self.strafe_sign
+            # flank: lean the legs toward the threat's back (hits outside its front arc deal rear_mult),
+            # but only with probability flank_bias so the pattern stays unpredictable
+            if threat.get("kind") == "mech" and "aim" in threat and self.rng.random() < cfg.flank_bias:
+                # rel: our angle around the threat, measured from its aim. Our strafe direction is
+                # by + sign*pi/2 with by = yaw(us -> threat), so sign -1 walks us counter-clockwise around it
+                # (rel grows) and +1 clockwise. Walk the way that takes us further from its aim.
+                rel = wrap(yaw_to(threat["pos"], pos) - threat["aim"][0])
+                self.strafe_sign = -1.0 if rel >= 0 else 1.0
             self.strafe_until = t + self.rng.uniform(cfg.strafe_leg_min_s, cfg.strafe_leg_max_s)
         side = by + self.strafe_sign * math.pi / 2
         zr = self._roof_z(me, plan.goal) if self.wm is not None else None
@@ -466,7 +479,11 @@ class MechBot:
         cur_yaw, cur_pitch = me["aim"]
         tgt = plan.target
         if tgt is None:
-            if plan.face_bearing is not None:
+            pre = self._preaim(obs, muzzle)
+            pitch0 = 0.0
+            if pre is not None:
+                yaw, pitch0 = pre        # already on the most likely threat when the fight starts
+            elif plan.face_bearing is not None:
                 yaw = plan.face_bearing
             elif math.hypot(*move) > 0.1:
                 yaw = math.atan2(move[1], move[0]) + cfg.scan_amp * math.sin(t * cfg.scan_rate)
@@ -479,7 +496,7 @@ class MechBot:
             gun = ws[0] if ws and ws[0] and ws[0]["kind"] == "gun" else None
             reload_ = bool(gun and gun.get("ammo", 12) < gun["stats"].get("mag", 12) * 0.5 and gun.get("reload", 0) == 0
                            and plan.mode in ("HOLD", "LOOT"))
-            return (yaw, 0.0), fire, reload_
+            return (yaw, pitch0), fire, reload_
 
         # target centre of mass
         if plan.target_kind == "crate":
@@ -507,8 +524,13 @@ class MechBot:
         elif mortar_i is not None and ws[mortar_i]["cooldown"] <= 0.05 and 30 < d < 220 and plan.target_kind != "crate":
             aim_mode = "mortar"
 
+        moving = plan.target_kind in ("mech", "npc")
+        zoff = tc[2] - tgt["pos"][2]
         if aim_mode == "laser":
-            pt = [tc[0] + tv[0] * 0.1, tc[1] + tv[1] * 0.1, tc[2]]
+            # hitscan: only the decision latency to cover (the beam leaves when we release next decision)
+            pt = self.tracker.predict(tgt["id"], cfg.aim_latency_s * 2, muzzle, tgt["pos"], tv) if moving else list(tc)
+            if moving:
+                pt = [pt[0], pt[1], pt[2] + zoff]
             yaw, pitch = aim_at(muzzle, pt)
         elif aim_mode == "mortar":
             ms = ws[mortar_i]["stats"]
@@ -518,13 +540,16 @@ class MechBot:
                 aim_mode = "gun"
             else:
                 tt = mortar_time(d, p0, sp)
-                pt = [tgt["pos"][0] + tv[0] * tt, tgt["pos"][1] + tv[1] * tt, tgt["pos"][2]]
+                pt = self.tracker.predict(tgt["id"], tt + cfg.aim_latency_s, muzzle, tgt["pos"], tv)
                 d2 = dist2(muzzle, pt)
                 p1 = mortar_pitch(d2, pt[2] - muzzle[2], sp, g) or p0
                 yaw, pitch = yaw_to(muzzle, pt), p1
         if aim_mode == "gun":
             sp = ws[0]["stats"].get("speed", 252) if ws and ws[0] and ws[0]["kind"] == "gun" else 252
-            pt = lead(muzzle, tc, tv, sp)
+            if moving:
+                pt, _ = self.tracker.intercept(tgt["id"], muzzle, sp, zoff, cfg.aim_latency_s, tgt["pos"], tv)
+            else:
+                pt = lead(muzzle, tc, tv, sp)
             yaw, pitch = aim_at(muzzle, pt)
         pitch = max(min(pitch, self.mech_rules.get("max_pitch", 1.3)), self.mech_rules.get("min_pitch", -0.7))
 
@@ -551,6 +576,33 @@ class MechBot:
                 own_splash = d < s.get("splash_radius", 7) * 2.5
                 fire[i] = aim_mode == "mortar" and yaw_err < 0.03 and pitch_err < 0.03 and not own_splash
         return (yaw, pitch), fire, False
+
+    def _preaim(self, obs, muzzle) -> Optional[Tuple[float, float]]:
+        """Aim at where the most likely threat will be: the closest visible mech (predicted half a second ahead),
+        else a mech that hit us lately and has gone out of sight (extrapolated along its drift, at most
+        preaim_hidden_s), so the torso is already on it when it reappears."""
+        cfg, t, pos = self.cfg, obs["t"], obs["self"]["pos"]
+        mechs = [m for m in obs["mechs"] if m["kind"] == "mech"]
+        h = self.mech_rules.get("height", 9.0) / 2
+        if mechs:
+            m = min(mechs, key=lambda m: dist2(m["pos"], pos))
+            p = self.tracker.predict(m["id"], 0.5, muzzle, m["pos"], m.get("vel"))
+            return aim_at(muzzle, [p[0], p[1], p[2] + h])
+        hostile = self.mem.hostile_ids(t, cfg.preaim_hostile_s)
+        best = None
+        for tid in hostile:
+            s = self.tracker.last(tid)
+            if s is None or tid >= 100:
+                continue
+            age = min(t - s[0], cfg.preaim_hidden_s)
+            p = self.tracker.predict(tid, age, muzzle)
+            d = dist2(p, pos)
+            if best is None or d < best[0]:
+                best = (d, p)
+        if best is not None:
+            p = best[1]
+            return aim_at(muzzle, [p[0], p[1], p[2] + h])
+        return None
 
     # ================================================================== offers + pickups
     def _offer(self, obs, act) -> None:
