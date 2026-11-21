@@ -39,7 +39,8 @@ beat the previous champion locally.
 
 | | |
 |---|---|
-| Champion | **champ-3.77** (branch) = E6 on champ-3.69, git `f579248243f7207ddba7c3afa2960b7d441c1694` |
+| Champion | **champ-3.81** (branch) = E7 on champ-3.77 (plating first), git `85b2a8481b793f283804987b5e1ac7cb7108a389` |
+| Before | champ-3.77 = E6 (cubes all match), git `f579248243f7207ddba7c3afa2960b7d441c1694` |
 | Previous | champ-3.69 (branch; also `champ-v3.1`) = git `8611ff7`, bot code identical to `bbd6f57` |
 | Official score | 3.69 (one 48-match run, Fri 11:09 PM ET); the same play without the speed fix (v3) scored 3.52 |
 | Run-to-run noise | about +-0.5 per 48-match run (spread of placement points per match ~3.5-4.5) |
@@ -223,8 +224,8 @@ daemon restart did not repeat).
 | id | branch | full commit | change | official |
 |---|---|---|---|---|
 | E8 | ne8 | `57083018f6c3f0ae242b456cb20d1609761642e8` | opening: up to 150 m for a laser when not attacked (merged by hand next to E6) | **3.73** (BB-5097B658, main `3b97489`): below 3.77, REVERTED |
-| E7 | ne7 | `85b2a8481b793f283804987b5e1ac7cb7108a389` | plating before armor | pending (on main `d289c59`) |
-| E9 | ne9 | `a78da01b71ac363b41bc4d93162f7eeeff042ee4` | below 70 % and not hit: no new fights until 95 % | pending |
+| E7 | ne7 | `85b2a8481b793f283804987b5e1ac7cb7108a389` | plating before armor | **3.81** (BB-91CB1D0E): new best, **KEPT -> champ-3.81** (+0.04, inside the noise) |
+| E9 | ne9 | `a78da01b71ac363b41bc4d93162f7eeeff042ee4` | below 70 % and not hit: no new fights until 95 % | **3.79** (BB-859410C2): below 3.81, REVERTED |
 
 ## Board results (all official runs, 48 matches each)
 
@@ -244,6 +245,13 @@ daemon restart did not repeat).
 | - | `d522b95` | E8 on e2b | opening laser up to 150 m | +0.30 +- 0.29 | 3.50 |
 | BB-9D1FB3DD | `f579248` | **E6** | cubes all match | +1.00 (30 seeds) | **3.77** (champ-3.77) |
 | BB-5097B658 | `5708301` | E8 on champ-3.77 | opening laser up to 150 m | +1.17 (30 seeds) | 3.73 |
+| BB-67C7DC0F | `198a6b9` | D1 on champ-3.77 | shorter strafe legs (0.35-0.9 s) | duels +22 net (clear) | 3.73 |
+| BB-91CB1D0E | `85b2a84` | **E7** on champ-3.77 | plating before armor | not measurable in sim | **3.81** (champ-3.81) |
+| BB-859410C2 | `a78da01` | E9 on champ-3.77 | heal before fighting | - | 3.79 |
+
+Submissions are made by full commit hash from here on (main no longer needs to hold the submitted version).
+All of E6-E9 and D1 landed within ~0.1 of 3.77: none really moved the score. D1's clear duel win did not
+transfer. Next: bold single changes on champ-3.81 (roof sniper, zone/drone kiting, chokepoint defence).
 
 Lessons (team, Sat Nov 21): simulator scores do not predict the board (+1.17 sim -> -0.04 board); use the
 simulator only to confirm a change does what it should. Every bundle scored badly; combine only changes that each
