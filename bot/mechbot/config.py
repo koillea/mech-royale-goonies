@@ -43,7 +43,7 @@ class BotConfig:
 
     # --- O1 aim: lead with acceleration, gravity, decision delay and strafe rhythm (ballistics.Tracker)
     smart_lead: bool = True
-    lead_delay_s: float = 0.05           # an action applies over the next 0.1 s: shots leave ~half-way on average
+    lead_delay_s: float = 0.0            # sim duels: 0.05 over-led (net -27 wins); shots leave along the current aim
     reversal_shrink: float = 0.5         # a strafe reversal that is due shrinks the sideways lead by up to half
 
     # --- position (position.py). Height first: roofs see further, shoot down, sit out of drone reach.
