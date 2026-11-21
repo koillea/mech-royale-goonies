@@ -178,6 +178,23 @@ same cores; watched in later runs), e2b 11.6 ms, example 16 ms.
   cast (top bots have ~2x our max armor from cubes and plating, and an early laser), the problem is fragility,
   not aggression. Next: E6 cubes, E7 plating first, E8 early laser, E9 heal before fighting.
 
+## E6-E9 - fragility (from the live cast: top bots have ~2x our max armor and an early laser)
+
+All four are one change each on e2b (`23980ee`). Quick check: 100 paired seeds, workers pinned to one CPU, no
+browser running. Each passes tests, the quality gate and check.py in the scorer's Docker sandbox.
+
+| id | commit | change | sim vs e2b (se) | notes | Docker max |
+|---|---|---|---|---|---|
+| E8 | `d522b95aff65d39eaabc240b50c302deb638757f` | opening (< 90 s): up to 150 m for a laser when not attacked, none contested, inside the zone | **+0.30 +- 0.29** | kills 2.48 -> 2.74, first-minute deaths 28 % -> 22 % | 9.0 ms |
+| E6 | `c47909bc42b739a15460a767fc992a26d0ec9e24` | cubes all match: from roofs, with mechs near, mid-fight within 25 m; not with 2+ attackers; inside the zone | +0.06 +- 0.33 | kills 2.65; outnumbered deaths 0.62 -> 0.72 | 9.5 ms |
+| E7 | `dbc47b8e5bacba1d3bdd5b96ced6740f1462513d` | plating before armor | 0.00 +- 0.00 | identical in all 100 matches: the simulator rarely offers plating and armor together; only the board can judge | 9.7 ms |
+| E9 | `26f33e99d413a2e4e0719a7472fa4851c7323491` | below 70 % and not hit: no new fights until 95 % | -0.12 +- 0.34 | full-to-dead-in-15-s 34 % -> 24 %, kills 2.35 | 8.1 ms |
+
+e2b response time, pinned, no browser, 100 matches: avg 0.20 ms, max 26.4 ms (under 50, slightly over the 25 aim).
+
+Decision: none is clearly worse, so each goes to the board in turn (E8, E6, E7, E9), each alone on main.
+Official scores: E8 pending, E6 pending, E7 pending, E9 pending. Then the winners are combined.
+
 ## E5 data (first-minute deaths, champion, 200 seeds)
 
 30 % of matches. First damage at a median 11 s, death at 35 s. Two attackers in 36 of 61, three in 9. In the
