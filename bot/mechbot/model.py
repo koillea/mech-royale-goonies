@@ -384,6 +384,16 @@ class MechBot:
         elif d > hi and plan.mode == "FIGHT":
             radial = 0.5
         rx, ry = math.cos(by) * radial, math.sin(by) * radial
+        sp = self.spot
+        if (cfg.chokepoint and plan.mode == "FIGHT" and sp is not None and sp.kind == "ground"
+                and dist2(pos, (sp.x, sp.y)) < cfg.choke_hold_m):
+            # B3: hold the chokepoint: pull back onto the spot and only rock a little sideways, no range pushes
+            dx, dy = sp.x - pos[0], sp.y - pos[1]
+            dd = math.hypot(dx, dy)
+            pull = min(dd / 3.0, 1.0)
+            mx = (dx / dd if dd > 1e-6 else 0.0) * pull + px * cfg.choke_rock
+            my = (dy / dd if dd > 1e-6 else 0.0) * pull + py * cfg.choke_rock
+            return mx, my, False, False
         if plan.mode in ("ROTATE", "COVER"):
             # the zone or cover goal comes first; strafe on top of it
             mx, my = mx + px * 0.6, my + py * 0.6

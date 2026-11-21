@@ -42,7 +42,11 @@ class BotConfig:
     drop_radius: float = 70.0            # contest a supply drop only if it lands this close
 
     # --- position (position.py). Height first: roofs see further, shoot down, sit out of drone reach.
-    use_perches: bool = True
+    use_perches: bool = False            # B3: chokepoints on the ground instead of roofs
+    chokepoint: bool = True              # B3: hold a walled-in spot (corner/alley) and fight from it
+    choke_min_cover: int = 10            # B3: at least 10 of the 25 surrounding cells are tall solids
+    choke_hold_m: float = 12.0           # B3: within this of the spot, a fight holds it (no strafing out)
+    choke_rock: float = 0.35             # B3: small sideways rocking while holding
     perch_min_height: float = 6.0        # lower roofs give little advantage
     perch_min_cells: int = 6             # interior roof cells (3 m each) needed to strafe without falling off
     climb_safety: float = 0.8            # use 80 % of the tank's theoretical climb (protocol: ~60 m on 100 energy)
@@ -55,7 +59,7 @@ class BotConfig:
     height_cap: float = 30.0
     w_height: float = 1.2
     w_room: float = 0.3
-    w_cover: float = 0.5
+    w_cover: float = 3.0                 # B3: walls first (was 0.5)
     w_center: float = 0.7
     w_travel: float = 1.0
     w_crowd: float = 0.8

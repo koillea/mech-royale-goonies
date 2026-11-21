@@ -10,7 +10,7 @@ from mechbot.position import PositionPlanner
 
 @pytest.fixture(scope="module")
 def pp(wm, hello):
-    return PositionPlanner(wm, BotConfig(), hello["config"])
+    return PositionPlanner(wm, BotConfig(use_perches=True, chokepoint=False, w_cover=0.5), hello["config"])
 
 
 def calm(observations):
@@ -63,7 +63,7 @@ def test_bad_perch_is_avoided(pp, observations):
 
 
 def _at_launch(hello, observations, energy):
-    bot = MechBot(hello)
+    bot = MechBot(hello, BotConfig(use_perches=True, chokepoint=False, w_cover=0.5))
     o = calm(observations)
     bot.act(o)                                   # choose the spot
     sp = bot.spot
@@ -92,7 +92,7 @@ def test_waits_for_energy_then_jets_up(hello, observations):
 
 
 def test_strafes_but_stays_on_roof_under_fire(hello, observations):
-    bot = MechBot(hello)
+    bot = MechBot(hello, BotConfig(use_perches=True, chokepoint=False, w_cover=0.5))
     o = calm(observations)
     bot.act(o)
     sp = bot.spot

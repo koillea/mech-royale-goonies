@@ -106,6 +106,9 @@ class PositionPlanner:
     def __init__(self, wm: WorldMap, cfg: Any, rules: Dict[str, Any]):
         self.wm, self.cfg, self.rules = wm, cfg, rules
         self.perches = build_perches(wm, cfg.perch_min_height, cfg.perch_min_cells)
+        # B3: every open cell walled in on several sides (corners, alleys): few angles can see in
+        self.choke_cells = [k for k in range(len(wm.blocked))
+                            if not wm.blocked[k] and wm.cover[k] >= getattr(cfg, "choke_min_cover", 99)]
 
     def climb_max(self, me: Dict[str, Any]) -> float:
         """Highest roof we can reach on a full tank: jet climbs max_rise_speed for jet_drain energy a second."""
@@ -170,6 +173,14 @@ class PositionPlanner:
         for jj in range(max(cj - r_cells, 0), min(cj + r_cells + 1, wm.ny), stride):
             for ii in range(max(ci - r_cells, 0), min(ci + r_cells + 1, wm.nx), stride):
                 cand.append(jj * wm.nx + ii)
+        if getattr(cfg, "chokepoint", False):
+            # B3: only chokepoints (fall back to the lattice if none is inside the circle)
+            r2 = lim * lim
+            chokes = [k for k in self.choke_cells
+                      if (wm.center(k)[0] - nc[0]) ** 2 + (wm.center(k)[1] - nc[1]) ** 2 <= r2]
+            if chokes:
+                step = max(1, len(chokes) // cfg.ground_samples)
+                cand = chokes[::step]
         for k in cand:
             if wm.blocked[k]:
                 continue
@@ -180,7 +191,8 @@ class PositionPlanner:
             if travel > avail:
                 continue
             s, parts = common(x, y, travel)
-            parts["cover"] = cfg.w_cover * min(wm.cover[k], 8) / 8.0
+            cap = 16 if getattr(cfg, "chokepoint", False) else 8
+            parts["cover"] = cfg.w_cover * min(wm.cover[k], cap) / cap
             s += parts["cover"]
             if best is None or s > best.score:
                 best = Spot("ground", x, y, wm.gnd[k], None, s, f"ground cover {wm.cover[k]}", parts)
