@@ -59,6 +59,12 @@ class BotConfig:
     w_npc: float = 0.6
     w_stay: float = 0.25
 
+    # --- v3.4: laser grab (315 hitscan damage at 280 m, no lead): worth a short trip even from our spot,
+    # then straight back (taking it re-picks the spot)
+    laser_grab: bool = True
+    laser_grab_radius: float = 70.0      # v3.4: the top bot was seen picking up the laser
+    laser_grab_clear: float = 80.0       # skip it if a seen mech is this close to it
+
     # --- NPC drones aggro at 45 m with line of sight (section 7 NPC drones)
     npc_avoid: float = 55.0
 

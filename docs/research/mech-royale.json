@@ -141,9 +141,20 @@
       "submitted": "Fri 10:14 PM ET",
       "score": 3.19,
       "wait_ms": 428
+    },
+    {
+      "version": "v3.3",
+      "commit": "24a2e95",
+      "submitted": "Fri 11:34 PM ET",
+      "score": 3.04,
+      "wait_ms": 90,
+      "note": "v3.1 + no crate shooting. Lower than v3.1 (3.69): loot (cubes -> HP, upgrades; weapons) likely matters more than quiet"
     }
   ],
   "plan": [
-    "v3.1 (main): v3 + decision-time fix only: A* stops at a 2.5 ms deadline, perch geometry precomputed, gc.freeze(), and spot re-scoring and route search never share a decision. Play is v3's."
+    "v3.4 (main): v3.1 + laser grab up to 70 m (clear of enemies, even from a roof, then back). Next: flank-biased strafing."
+  ],
+  "observations": [
+    "Cast (Jessica): the top bot strafes, appears to 'crouch' (no crouch action exists: maybe standing still at low cover or moving slowly), flanks bots, and picked up the laser."
   ]
 }

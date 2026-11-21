@@ -127,6 +127,8 @@ class MechBot:
     def act(self, obs: Dict[str, Any]) -> Dict[str, Any]:
         self._t0 = time.perf_counter()
         self.mem.ingest(obs)
+        if any(e.get("type") == "took" for e in obs.get("events", [])):
+            self.spot_t = -1e9            # new weapon in hand: re-pick the spot and go straight back
         self._update_spot(obs)
         self.hold = self._hold(obs)
         plan = self.planner.plan(obs, self.mem, self.hold)

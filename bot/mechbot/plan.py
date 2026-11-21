@@ -139,6 +139,9 @@ class HeuristicPlanner:
         if bearing is not None:
             return Plan("ALERT", goal=goal, face_bearing=bearing, rationale="ALERT hit from unseen")
 
+        lp = self._laser_grab(obs, mechs, npcs, hold, mem)
+        if lp is not None:
+            return lp
         near_enemy = any(dist2(m["pos"], pos) < 120 for m in mechs)
         if t < cfg.loot_until_t and not near_enemy and not busy:
             lp = self._loot(obs, npcs, hp_frac, goal)
@@ -219,6 +222,30 @@ class HeuristicPlanner:
         if not cands:
             return None
         return min(cands, key=lambda x: x[0])[1]
+
+    def _laser_grab(self, obs, mechs, npcs, hold, mem) -> Optional[Plan]:
+        """A laser lying close by is worth a short trip even from our spot (315 hitscan damage at 280 m, no lead):
+        go, take it, and the position planner sends us straight back (model re-picks the spot after a take)."""
+        cfg, me, t = self.cfg, obs["self"], obs["t"]
+        if not cfg.laser_grab or (hold is not None and hold.climbing):
+            return None
+        pos = me["pos"]
+        heard = mem.intel_points(t) if hasattr(mem, "intel_points") else []
+        for p in self.wanted_pickups(obs):
+            if p["kind"] != "laser":
+                continue
+            d = dist2(p["pos"], pos)
+            if d > cfg.laser_grab_radius:
+                continue
+            if any(dist2(m["pos"], p["pos"]) < cfg.laser_grab_clear for m in mechs):
+                continue                                   # someone is right there: not worth a fight
+            if any(dist2(h, p["pos"]) < cfg.laser_grab_clear * 0.6 for h in heard):
+                continue
+            if any(dist2(n["pos"], p["pos"]) < cfg.npc_avoid for n in npcs):
+                continue
+            return Plan("LOOT", goal=(p["pos"][0], p["pos"][1]), take=p, boost=d > 20,
+                        rationale=f"LOOT laser {d:.0f}m then back")
+        return None
 
     def wanted_pickups(self, obs) -> List[Dict[str, Any]]:
         """Pickups that improve our loadout: fill an empty slot, or replace a worse slot-1 weapon."""
