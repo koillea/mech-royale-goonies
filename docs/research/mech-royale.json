@@ -86,6 +86,14 @@
     {
       "assumption": "Standing still is safest between rotations (no step sounds under 5 m/s).",
       "status": "doc says silent; effect on house bots unverified"
+    },
+    {
+      "assumption": "Mechs can stand on building roofs (prism tops) and reach them by jumping and jetting into the wall.",
+      "status": "doc says so (section 7 Movement: 'almost every campus roof'); not observed in the recorded match, which has no rooftop positions"
+    },
+    {
+      "assumption": "A roof position improves survival against the house bots.",
+      "status": "unverified; it is the v3 hypothesis the board will test"
     }
   ],
   "measurements": [
@@ -109,6 +117,12 @@
       "score": 3.21,
       "rank": "51 of 94",
       "note": "survivor bot; mean place ~12.8. No per-match data available."
+    },
+    {
+      "version": "v2",
+      "commit": "9b34491",
+      "score": null,
+      "note": "strafe whenever shooting or under fire; score not reported yet"
     }
   ]
 }

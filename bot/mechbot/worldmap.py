@@ -39,12 +39,14 @@ class WorldMap:
         self.blocked = bytearray(n)
         self.roof = array("f", [-1e9]) * n          # highest solid top in the cell (for line of sight)
         self.gnd = array("f", [0.0]) * n            # ground height at the cell centre
+        self.pid = array("i", [-1]) * n             # index of the prism that sets `roof` in the cell
+        self.prisms = world["prisms"]
         for j in range(self.ny):
             y = self.miny + (j + 0.5) * cell
             for i in range(self.nx):
                 self.gnd[j * self.nx + i] = self.ground(self.minx + (i + 0.5) * cell, y)
-        for p in world["prisms"]:
-            self._raster(p, step_up, head)
+        for pi, p in enumerate(world["prisms"]):
+            self._raster(p, step_up, head, pi)
         # terrain too steep to walk: mark cells whose height jumps more than the slope allows
         lim = cell * math.tan(math.radians(max_slope_deg))
         g, nx = self.gnd, self.nx
@@ -53,6 +55,16 @@ class WorldMap:
                 k = j * nx + i
                 if abs(g[k + 1] - g[k]) > lim or abs(g[k + nx] - g[k]) > lim:
                     self.blocked[k] = 1
+        # cover: free cells with a tall solid within 2 cells (a wall at our back blocks shots and sight)
+        self.cover = bytearray(n)
+        for k in range(n):
+            if self.blocked[k] and self.roof[k] > self.gnd[k] + 6.0:
+                j, i = divmod(k, self.nx)
+                for jj in range(max(j - 2, 0), min(j + 3, self.ny)):
+                    for ii in range(max(i - 2, 0), min(i + 3, self.nx)):
+                        kk = jj * self.nx + ii
+                        if self.cover[kk] < 255:
+                            self.cover[kk] += 1
         # map edge is a wall
         for i in range(self.nx):
             self.blocked[i] = self.blocked[(self.ny - 1) * self.nx + i] = 1
@@ -72,7 +84,7 @@ class WorldMap:
         h1 = t[k + nx] * (1 - ax) + t[k + nx + 1] * ax
         return (h0 * (1 - ay) + h1 * ay) * self.t_scale
 
-    def _raster(self, p: dict, step_up: float, head: float) -> None:
+    def _raster(self, p: dict, step_up: float, head: float, pi: int = -1) -> None:
         rings = [p["ring"]] + list(p.get("holes") or [])
         edges = []
         ymin, ymax = 1e18, -1e18
@@ -104,6 +116,7 @@ class WorldMap:
                         k = j * nx + i
                         if top > self.roof[k]:
                             self.roof[k] = top
+                            self.pid[k] = pi
                         if solid:
                             self.blocked[k] = 1
             y += 1.0
@@ -150,6 +163,18 @@ class WorldMap:
             if roof[k] > z or self.gnd[k] > z + 0.5:
                 return False
         return True
+
+    def elevated(self, x: float, y: float, z: float) -> bool:
+        """Standing on a structure (a roof) rather than on the terrain."""
+        k = self.idx(x, y)
+        return z > self.gnd[k] + 2.5 and abs(self.roof[k] - z) < 1.5
+
+    def walk_ok(self, x: float, y: float, z: Optional[float] = None) -> bool:
+        """Can we stand at (x, y)? On the ground: not a wall. On a roof at height z: still the same roof level."""
+        k = self.idx(x, y)
+        if z is not None and z > self.gnd[k] + 2.5:
+            return abs(self.roof[k] - z) < 1.0
+        return not self.blocked[k]
 
     def line_walkable(self, a: Tuple[float, float], b: Tuple[float, float]) -> bool:
         d = math.hypot(b[0] - a[0], b[1] - a[1])

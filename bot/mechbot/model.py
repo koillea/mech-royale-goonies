@@ -15,7 +15,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from .ballistics import aim_at, lead, mortar_pitch, mortar_time, wrap, yaw_to
 from .config import BotConfig
-from .plan import HeuristicPlanner, Plan, dist2
+from .plan import HeuristicPlanner, Hold, Plan, dist2
+from .position import PositionPlanner, Spot
 from .worldmap import PathSearch, WorldMap
 
 LOUD = {"gun", "laser", "mortar", "explosion", "lightning", "laser_charge"}
@@ -86,6 +87,18 @@ class MechBot:
                     break
                 except Exception as e:  # never die at hello: fall back to direct steering
                     log("map load failed", d, repr(e))
+        self.pos_planner: Optional[PositionPlanner] = None
+        if self.wm is not None:
+            try:
+                self.pos_planner = PositionPlanner(self.wm, self.cfg, self.rules)
+            except Exception as e:
+                log("position planner failed", repr(e))
+        self.spot: Optional[Spot] = None
+        self.spot_key: Optional[Tuple[float, float, float]] = None
+        self.spot_t = -1e9
+        self.bad_perch: Dict[int, float] = {}
+        self.climb_t0: Optional[float] = None
+        self.hold: Optional[Hold] = None
         self.path: Optional[List[Tuple[float, float]]] = None
         self.path_goal: Optional[Tuple[float, float]] = None
         self.path_i = 0
@@ -104,12 +117,16 @@ class MechBot:
         self.cover: Optional[Tuple[float, float]] = None
         self.cover_t = -1e9
         self.cover_from: Optional[int] = None
-        log(f"{self.name}: init {time.time() - t0:.2f}s map={'ok' if self.wm else 'none'}")
+        log(f"{self.name}: init {time.time() - t0:.2f}s map={'ok' if self.wm else 'none'} "
+            f"perches={len(self.pos_planner.perches) if self.pos_planner else 0}")
 
     # ================================================================== decision
     def act(self, obs: Dict[str, Any]) -> Dict[str, Any]:
+        self._t0 = time.perf_counter()
         self.mem.ingest(obs)
-        plan = self.planner.plan(obs, self.mem)
+        self._update_spot(obs)
+        self.hold = self._hold(obs)
+        plan = self.planner.plan(obs, self.mem, self.hold)
         self._maybe_cover(obs, plan)
         self.last_plan = plan
         act: Dict[str, Any] = {"tick": obs["tick"]}
@@ -123,6 +140,73 @@ class MechBot:
         self._take(obs, act)
         act["debug"] = {"label": plan.rationale[:80]}
         return act
+
+    # ================================================================== position
+    def _update_spot(self, obs) -> None:
+        if self.pos_planner is None:
+            return
+        z, t = obs["zone"], obs["t"]
+        key = (round(z["next_center"][0], 1), round(z["next_center"][1], 1), round(z["next_radius"], 1))
+        new_ring = key != self.spot_key
+        if new_ring or self.spot is None or (t - self.spot_t > self.cfg.respot_s and self.climb_t0 is None):
+            self.spot = self.pos_planner.choose(obs, None if new_ring else self.spot, self.bad_perch)
+            self.spot_key, self.spot_t = key, t
+            self.climb_t0 = None if new_ring else self.climb_t0
+            self.path = None if new_ring else self.path
+
+    def _elevated(self, me) -> bool:
+        p = me["pos"]
+        return self.wm is not None and self.wm.elevated(p[0], p[1], p[2])
+
+    def _hold(self, obs) -> Optional[Hold]:
+        sp = self.spot
+        if sp is None:
+            return None
+        me, t = obs["self"], obs["t"]
+        pos = me["pos"]
+        d = dist2(pos, (sp.x, sp.y))
+        if sp.kind == "ground":
+            self.climb_t0 = None
+            return Hold(goal=(sp.x, sp.y) if d > 2.5 else None, spot=(sp.x, sp.y), why=sp.why)
+        p = sp.perch
+        on_perch = self._elevated(me) and abs(pos[2] - sp.z) < 1.5
+        if on_perch:
+            self.climb_t0 = None
+            return Hold(goal=(sp.x, sp.y) if d > 2.0 else None, spot=(sp.x, sp.y), perched=True, why=sp.why)
+        if self.climb_t0 is not None and t - self.climb_t0 > self.cfg.climb_timeout_s:
+            self.bad_perch[p.pid] = t + self.cfg.bad_perch_s          # could not get up: try elsewhere
+            self.climb_t0, self.spot_t = None, -1e9
+            self._update_spot(obs)
+            return self._hold(obs) if self.spot is not None and self.spot is not sp else None
+        lx, ly = self.pos_planner.launch_for(p, pos)
+        if self.climb_t0 is None and dist2(pos, (lx, ly)) > 3.5:
+            return Hold(goal=(lx, ly), spot=(sp.x, sp.y), why=f"to wall of {sp.why}")
+        return Hold(goal=None, spot=(sp.x, sp.y), climbing=True, why=f"up {sp.why}")
+
+    def _climb(self, obs, mx: float, my: float, boost: bool, jump: bool):
+        """At the wall: wait for enough energy, then jump and jet into the wall until the feet clear the roof edge
+        (protocol section 7 Movement: taller ledges are walls until your feet are above them)."""
+        me, t, sp = obs["self"], obs["t"], self.spot
+        pos = me["pos"]
+        p = sp.perch
+        st = me["stats"]
+        per_energy = st.get("max_rise_speed", 10.0) / max(st.get("jet_drain", 15.0), 1e-6)
+        need = max(p.top - pos[2], 0.0) / per_energy + self.cfg.climb_energy_margin
+        if self.climb_t0 is None:
+            if me["energy"] < min(need, me["max_energy"] * 0.98):
+                return mx * 0.3, my * 0.3, False, False          # wait at the wall (keep any evasive drift small)
+            self.climb_t0 = t
+        rx, ry = self.pos_planner.nearest_roof_cell(p, pos)
+        if pos[2] > p.top + 0.4:
+            rx, ry = sp.x, sp.y                                   # above the edge: step in over the roof
+        d = math.hypot(rx - pos[0], ry - pos[1])
+        mx, my = ((rx - pos[0]) / d, (ry - pos[1]) / d) if d > 1e-6 else (0.0, 0.0)
+        if me.get("grounded", True):
+            jump = pos[2] < p.top - 0.5
+            boost = False
+        else:
+            boost = pos[2] < p.top + 1.0 and me["energy"] > 1
+        return mx, my, boost, jump
 
     # ================================================================== cover
     def _maybe_cover(self, obs, plan: Plan) -> None:
@@ -147,6 +231,7 @@ class MechBot:
 
     def _find_cover(self, me, tgt) -> Optional[Tuple[float, float]]:
         wm, pos = self.wm, me["pos"]
+        zr = pos[2] if self._elevated(me) else None      # on a roof: cover means stepping back from its edge
         eye = [tgt["pos"][0], tgt["pos"][1], tgt["pos"][2] + self.mech_rules.get("eye_height", 8.0)]
         best, bd = None, 1e18
         away = yaw_to(tgt["pos"], pos)
@@ -154,16 +239,32 @@ class MechBot:
             for k in range(16):
                 a = away + (k - 8) * math.pi / 8
                 x, y = pos[0] + math.cos(a) * r, pos[1] + math.sin(a) * r
-                if not wm.free(x, y):
+                if not wm.walk_ok(x, y, zr):
                     continue
-                g = wm.ground(x, y)
+                g = zr if zr is not None else wm.ground(x, y)
                 if wm.los(eye, [x, y, g + 8.5]):
                     continue
                 cost = r + 0.3 * abs(wrap(a - away)) * r
-                if cost < bd and wm.line_walkable((pos[0], pos[1]), (x, y)):
+                if cost < bd and self._line_ok(pos, (x, y), zr):
                     best, bd = (x, y), cost
             if best is not None:
                 return best
+        return None
+
+    def _line_ok(self, pos, b, zr) -> bool:
+        if zr is None:
+            return self.wm.line_walkable((pos[0], pos[1]), b)
+        n = max(int(dist2(pos, b) / 1.5), 1)
+        return all(self.wm.walk_ok(pos[0] + (b[0] - pos[0]) * s / n, pos[1] + (b[1] - pos[1]) * s / n, zr)
+                   for s in range(1, n + 1))
+
+    def _roof_z(self, me, goal) -> Optional[float]:
+        """Our roof height if we are on a roof and mean to stay on it (no goal, or a goal on the same roof)."""
+        if not self._elevated(me):
+            return None
+        z = me["pos"][2]
+        if goal is None or self.wm.walk_ok(goal[0], goal[1], z):
+            return z
         return None
 
     # ================================================================== movement
@@ -197,18 +298,26 @@ class MechBot:
                     mx += (pos[0] - n["pos"][0]) / max(d, 1) * w * 1.5
                     my += (pos[1] - n["pos"][1]) / max(d, 1) * w * 1.5
 
-        # wall avoidance on the grid: if the cell a few metres ahead is solid, rotate toward free space
+        # wall avoidance on the grid: if the cell a few metres ahead is solid (or, on a roof, off the edge),
+        # rotate toward free space
+        zr = self._roof_z(me, plan.goal) if self.wm is not None else None
         n = math.hypot(mx, my)
         if n > 1e-6:
             mx, my = mx / n, my / n
-            if self.wm is not None and not self.wm.free(pos[0] + mx * 4.0, pos[1] + my * 4.0) and t > self.jet_until:
+            leaving_roof = self._elevated(me) and zr is None
+            if self.wm is not None and not leaving_roof and t > self.jet_until \
+                    and not self.wm.walk_ok(pos[0] + mx * 4.0, pos[1] + my * 4.0, zr):
                 base = math.atan2(my, mx)
-                for da in (0.4, -0.4, 0.8, -0.8, 1.2, -1.2, 1.6, -1.6):
+                for da in (0.4, -0.4, 0.8, -0.8, 1.2, -1.2, 1.6, -1.6, 2.4, -2.4, math.pi):
                     a = base + da
-                    if self.wm.free(pos[0] + math.cos(a) * 4.0, pos[1] + math.sin(a) * 4.0):
+                    if self.wm.walk_ok(pos[0] + math.cos(a) * 4.0, pos[1] + math.sin(a) * 4.0, zr):
                         mx, my = math.cos(a), math.sin(a)
                         break
 
+        climbing = self.hold is not None and self.hold.climbing and plan.mode not in ("COVER", "ROTATE")
+        if climbing:
+            cx, cy, cb, cj = self._climb(obs, mx, my, boost, jump)
+            return (cx, cy), cb, cj
         # unstick: commanded to move but barely moving -> jump + jet, then a detour
         hs = math.hypot(me["vel"][0], me["vel"][1])
         if n > 0.5 and hs < cfg.stuck_speed and me.get("grounded", True):
@@ -254,8 +363,9 @@ class MechBot:
             self.strafe_sign = -self.strafe_sign
             self.strafe_until = t + self.rng.uniform(cfg.strafe_leg_min_s, cfg.strafe_leg_max_s)
         side = by + self.strafe_sign * math.pi / 2
-        if self.wm is not None and not self.wm.free(pos[0] + math.cos(side) * cfg.strafe_wall_probe,
-                                                     pos[1] + math.sin(side) * cfg.strafe_wall_probe):
+        zr = self._roof_z(me, plan.goal) if self.wm is not None else None
+        if self.wm is not None and not self.wm.walk_ok(pos[0] + math.cos(side) * cfg.strafe_wall_probe,
+                                                       pos[1] + math.sin(side) * cfg.strafe_wall_probe, zr):
             self.strafe_sign = -self.strafe_sign    # wall on this side: run the other way
             self.strafe_until = t + self.rng.uniform(cfg.strafe_leg_min_s, cfg.strafe_leg_max_s)
             side = by + self.strafe_sign * math.pi / 2
@@ -263,7 +373,9 @@ class MechBot:
         # hold a range band: back off when too close, close in when out of reach
         lo, hi = self._range_band(me)
         radial = 0.0
-        if plan.retreat or d < lo:
+        if zr is not None:
+            pass                                    # on our roof: hold the height, strafe only
+        elif plan.retreat or d < lo:
             radial = -0.8
         elif d > hi and plan.mode == "FIGHT":
             radial = 0.5
@@ -276,7 +388,7 @@ class MechBot:
         energy = me["energy"]
         if threat.get("kind") == "mech" and energy > cfg.strafe_boost_energy:
             boost = True
-        if me.get("grounded", True) and energy > cfg.hop_energy and t >= self.hop_t:
+        if zr is None and me.get("grounded", True) and energy > cfg.hop_energy and t >= self.hop_t:
             jump = True
             self.hop_t = t + self.rng.uniform(cfg.hop_every_s * 0.7, cfg.hop_every_s * 1.3)
         return mx, my, boost, jump
@@ -311,15 +423,18 @@ class MechBot:
         if d < 2.0:
             return 0.0, 0.0
         wm = self.wm
-        if wm is None or wm.line_walkable((pos[0], pos[1]), goal):
+        if wm is None or self._elevated(me) or wm.line_walkable((pos[0], pos[1]), goal):
             return (goal[0] - pos[0]) / d, (goal[1] - pos[1]) / d
         # (re)plan when the goal moved or the plan is stale; the search is resumable across ticks
         if (self.search_goal is None or dist2(self.search_goal, goal) > 6.0 or t - self.plan_t > cfg.replan_s) \
                 and (self.search is None or self.search.done):
             self.search = PathSearch(wm, wm.nearest_free(pos[0], pos[1]), wm.nearest_free(goal[0], goal[1]))
             self.search_goal, self.plan_t = goal, t
-        if self.search is not None and not self.search.done:
-            if self.search.step(cfg.path_budget):
+        # spend only what is left of this decision's time on the search (target: under cfg.decide_ms)
+        left = cfg.decide_ms / 1000.0 - (time.perf_counter() - getattr(self, "_t0", time.perf_counter()))
+        budget = int(cfg.path_budget * max(0.0, min(1.0, left / 0.010)))
+        if self.search is not None and not self.search.done and budget > 0:
+            if self.search.step(budget):
                 self.path, self.path_goal, self.path_i = self.search.path, self.search_goal, 0
         if not self.path:
             return (goal[0] - pos[0]) / d, (goal[1] - pos[1]) / d

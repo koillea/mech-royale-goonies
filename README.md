@@ -44,19 +44,42 @@ obs ─▶ Memory.ingest (who hit us, from where, loud sounds)
 ## How it reasons about an observation
 
 Scoring rewards **surviving**, not kills (`16 - place`), and the house bots share vision and hunt the weakest entrant
-first. The plan is therefore: keep HP high, stay out of fights we do not need, never get caught by the zone, and
-win the fights we cannot avoid by facing the attacker (rear hits deal x1.5).
+first. So the bot plays for position: it picks the safest strong spot in each ring, prefers height, fights only when
+something is close enough to be a real threat, and never gets caught by the zone.
 
-Rules, first match wins (`plan.py`):
+### Position (`position.py`)
+
+At `hello` the map yields a catalogue of **perches**: building roofs at least 6 m high with room to strafe at least
+one cell (3 m) from every edge, and the free ground cells beside each building to jet up from. Roofs higher than a
+full tank can climb (80 % of `max_energy x max_rise_speed / jet_drain` plus the jump, about 56 m) are skipped; that
+excludes the 70 m towers, as the protocol says. Each time the next circle is announced (and every 8 s after,
+with hysteresis) every perch and a lattice of ground spots inside the next circle (with a 12 m margin) is scored:
+
+| Term | Weight | Why |
+|---|---|---|
+| height of the roof (capped at 30 m) | +1.2 | see over buildings, shoot down, out of drone reach |
+| room on the roof | +0.3 | strafe without falling off |
+| walls around a ground spot | +0.5 | a wall at our back blocks shots and sight |
+| distance from the circle's centre / radius | -0.7 | later circles fall inside this one |
+| travel time / time left before the shrink ends | -1.0 | spots we cannot reach in time are dropped |
+| visible mechs within 80 m, drones within 55 m | -0.8 each, -0.6 each | do not walk into a fight |
+| it is the spot we already hold | +0.25 | do not flip-flop |
+
+To get up, the bot walks to the building's foot, waits until its energy covers the climb plus 15, then jumps and
+jets into the wall until its feet clear the edge (protocol section 7: a taller ledge is a wall until your feet are
+above it) and steps onto the roof. If it is not up within 7 s that roof is avoided for 60 s and another spot is chosen.
+On a roof every move, strafe and cover search is checked against the roof's own cells, so it holds the height.
+
+### Rules, first match wins (`plan.py`)
 
 | Mode | When | What it does |
 |---|---|---|
-| `ROTATE` | outside the current (interpolated) circle, or the shrink would catch us with < 8 s slack | boost to the hold point, still shooting back |
-| `FIGHT` | a mech hit us in the last 4 s, or one is within 110 m, or one under 40 % HP within 180 m, or 3 or fewer mechs remain | face it, shoot, strafe (see Evasion); retreat below 35 % HP if it has more HP |
-| `COVER` | in a FIGHT where the enemy has a laser and we don't (beyond 60 m), or we are losing on HP | run to the nearest walkable point within 36 m that the attacker's eye has no line of sight to |
+| `ROTATE` | outside the current (interpolated) circle, or the shrink would catch us with < 8 s slack | boost toward the spot, still shooting back |
+| `FIGHT` | a mech hit us in the last 4 s, a mech is within 90 m (135 m with 3 or fewer mechs left), or a drone is within its 45 m aggro range or hit us | face it, shoot, strafe (see Evasion); on a roof it fights from the roof |
+| `COVER` | in a FIGHT where the enemy has a laser and we don't (beyond 60 m), or we are losing on HP | nearest point within 36 m the attacker cannot see; on a roof, a point back from the edge |
 | `ALERT` | hit by something we cannot see | turn to the damage bearing, keep moving |
-| `LOOT` | before 260 s, no enemy within 120 m, not pulling us away from the zone | better weapon (laser > lightning > mortar), cube, uncontested close supply drop, crate (HP ≥ 70 %) |
-| `HOLD` | otherwise | walk to the hold point (55 % of the next circle's radius on our side; 35 % when it is ≤ 70 m) and stand silently, sweeping the 120° view cone, facing any visible mech |
+| `LOOT` | on the ground travelling, before 260 s, no enemy within 120 m, not pulling us away from the spot | better weapon (laser > lightning > mortar), cube, uncontested close supply drop, crate (HP >= 70 %) |
+| `HOLD` / `CLIMB` / `PERCH` | otherwise | walk to the spot / climb onto it / stand on it silently, sweeping the 120 degree view cone and facing any visible mech without shooting it |
 
 ## Evasion (`_evade`)
 

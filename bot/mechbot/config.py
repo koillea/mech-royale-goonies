@@ -15,9 +15,11 @@ class BotConfig:
 
     # --- scoring: 16 - place, survival beats kills (section 4). House bots hunt the weakest entrant first,
     # so keeping HP high (regen needs 5 s without dealing or taking damage, section 7 Health) is the core plan.
-    engage_range: float = 110.0          # shoot unprovoked only inside this (gun sound carries 320 m, section 8)
-    engage_low_hp_frac: float = 0.4      # ...or at a visible enemy below this HP fraction within finish_range
-    finish_range: float = 180.0
+    # Fight only when we must: a mech that hit us, a mech inside threat_radius_mech, or a drone inside its own
+    # aggro range (npc.aggro_range, 45 m, section 7 NPC drones) or one that hit us. Everything else is watched.
+    threat_radius_mech: float = 90.0
+    endgame_alive: int = 3               # with this few mechs left, widen the mech radius by endgame_mult
+    endgame_mult: float = 1.5
     provoked_s: float = 4.0              # an attacker stays "hostile" this long after its last hit on us
     retreat_hp_frac: float = 0.35        # below this, back away from the fight while still facing it (rear x1.5)
 
@@ -36,6 +38,27 @@ class BotConfig:
     weapon_pref: List[str] = field(default_factory=lambda: ["laser", "lightning", "mortar"])
     drop_radius: float = 70.0            # contest a supply drop only if it lands this close
 
+    # --- position (position.py). Height first: roofs see further, shoot down, sit out of drone reach.
+    use_perches: bool = True
+    perch_min_height: float = 6.0        # lower roofs give little advantage
+    perch_min_cells: int = 6             # interior roof cells (3 m each) needed to strafe without falling off
+    climb_safety: float = 0.8            # use 80 % of the tank's theoretical climb (protocol: ~60 m on 100 energy)
+    climb_energy_margin: float = 15.0    # wait at the wall until energy covers the climb plus this
+    climb_timeout_s: float = 7.0         # give up on a roof after this long trying; avoid it for bad_perch_s
+    bad_perch_s: float = 60.0
+    respot_s: float = 8.0                # re-score spots this often (hysteresis keeps us put unless clearly better)
+    ground_stride: int = 4               # sample ground spots at least every 4 cells (12 m)...
+    ground_samples: int = 1200           # ...and widen the stride so a big circle stays under this many
+    height_cap: float = 30.0
+    w_height: float = 1.2
+    w_room: float = 0.3
+    w_cover: float = 0.5
+    w_center: float = 0.7
+    w_travel: float = 1.0
+    w_crowd: float = 0.8
+    w_npc: float = 0.6
+    w_stay: float = 0.25
+
     # --- NPC drones aggro at 45 m with line of sight (section 7 NPC drones)
     npc_avoid: float = 55.0
 
@@ -50,7 +73,8 @@ class BotConfig:
     stuck_s: float = 0.6
     waypoint_lookahead: int = 4          # cells ahead on the A* path to steer at
     replan_s: float = 2.5
-    path_budget: int = 2500              # A* node expansions per decision (about 10 ms)
+    path_budget: int = 2500              # A* node expansions per 10 ms of time left in the decision
+    decide_ms: float = 22.0              # aim to finish every decision by this (budget is 50 ms on 1 CPU)
     # --- evasion: never stand still under fire. A gun bullet takes ~0.4 s to cross 100 m (252 m/s), and the
     # enemy leads on our current velocity, so legs of random length (reversals it cannot time) at boost speed
     # (19.5 vs 11.7 m/s, section 7 Movement) make its lead wrong. Boost drains 17/s and energy regenerates

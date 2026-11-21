@@ -34,6 +34,16 @@ class Plan:
     rationale: str = ""
 
 
+@dataclass
+class Hold:
+    """Where the position planner wants us (position.py), as seen by this decision."""
+    goal: Optional[Vec2]                      # None = we are there (or climbing: movement handles it)
+    spot: Vec2                                # the chosen spot itself
+    perched: bool = False                     # standing on the chosen roof
+    climbing: bool = False                    # at the wall, jetting up (or waiting for energy to)
+    why: str = ""
+
+
 def dist2(a, b) -> float:
     return math.hypot(a[0] - b[0], a[1] - b[1])
 
@@ -80,12 +90,35 @@ class HeuristicPlanner:
         return goal, urgent, why
 
     # ------------------------------------------------------------------ main
-    def plan(self, obs: Dict[str, Any], mem: Any) -> Plan:
+    def hold_urgency(self, obs: Dict[str, Any], hold: Hold, speed: float) -> Tuple[bool, str]:
+        """Run (boost) if we are outside the zone now, or the shrink would catch us before we reach safety."""
+        cfg, me, z, t = self.cfg, obs["self"], obs["zone"], obs["t"]
+        pos = me["pos"]
+        cc, cr = zone_now(z, t)
+        if dist2(pos, cc) > cr - 3.0 or not me.get("in_zone", True):
+            return True, "outside zone"
+        nc, nr = z["next_center"], z["next_radius"]
+        if dist2(pos, nc) <= max(nr - cfg.zone_margin, 0.0):
+            return False, ""
+        slack = z["shrink_end"] - t - dist2(pos, hold.spot) / max(speed, 1.0)
+        if slack < cfg.boost_when_late_s:
+            return True, f"shrink slack {slack:.0f}s"
+        return False, ""
+
+    def plan(self, obs: Dict[str, Any], mem: Any, hold: Optional[Hold] = None) -> Plan:
         cfg, me, t = self.cfg, obs["self"], obs["t"]
         pos = me["pos"]
         hp_frac = me["hp"] / max(me["max_hp"], 1.0)
         speed = me["stats"].get("walk_speed", 11.7)
-        goal, urgent, zwhy = self.zone_goal(obs, speed)
+        if hold is not None:
+            goal = hold.goal
+            urgent, zwhy = self.hold_urgency(obs, hold, speed)
+            if urgent and goal is None and not hold.perched and not hold.climbing:
+                goal = hold.spot
+        else:
+            goal, urgent, zwhy = self.zone_goal(obs, speed)
+        perched = hold is not None and hold.perched
+        busy = hold is not None and (hold.perched or hold.climbing)
 
         mechs = [m for m in obs["mechs"] if m["kind"] == "mech"]
         npcs = [m for m in obs["mechs"] if m["kind"] == "npc"]
@@ -93,29 +126,34 @@ class HeuristicPlanner:
         target, kind, why = self._pick_target(obs, mechs, npcs, hostile)
 
         if urgent:
-            return Plan("ROTATE", goal=goal or self._center(obs), target=target, target_kind=kind,
+            if goal is None and not busy:
+                goal = self._center(obs)
+            return Plan("ROTATE", goal=goal, target=target, target_kind=kind,
                         boost=True, rationale=f"ROTATE {zwhy}" + (f" +{why}" if target else ""))
         if target is not None:
             retreat = (kind == "mech" and hp_frac < cfg.retreat_hp_frac
                        and target.get("hp", 0) >= me["hp"] and obs["alive"] > 2)
             return Plan("FIGHT", goal=goal, target=target, target_kind=kind, retreat=retreat,
-                        rationale=f"FIGHT {why}" + (" retreat" if retreat else ""))
+                        rationale=f"FIGHT {why}" + (" from roof" if perched else "") + (" retreat" if retreat else ""))
         bearing = mem.recent_damage_bearing(t, 3.0)
         if bearing is not None:
             return Plan("ALERT", goal=goal, face_bearing=bearing, rationale="ALERT hit from unseen")
 
         near_enemy = any(dist2(m["pos"], pos) < 120 for m in mechs)
-        if t < cfg.loot_until_t and not near_enemy:
+        if t < cfg.loot_until_t and not near_enemy and not busy:
             lp = self._loot(obs, npcs, hp_frac, goal)
             if lp is not None:
                 return lp
         if mechs:  # visible but not worth a fight: keep facing it so a hit lands on our front
             m = min(mechs, key=lambda m: dist2(m["pos"], pos))
-            return Plan("HOLD", goal=goal, face_bearing=math.atan2(m["pos"][1] - pos[1], m["pos"][0] - pos[0]),
-                        rationale=f"HOLD watching {m['id']}")
+            mode = "PERCH" if perched else ("CLIMB" if hold is not None and hold.climbing else "HOLD")
+            return Plan(mode, goal=goal, face_bearing=math.atan2(m["pos"][1] - pos[1], m["pos"][0] - pos[0]),
+                        rationale=f"{mode} watching {m['id']}")
         heard = mem.loud_bearing(t)
-        return Plan("HOLD", goal=goal, face_bearing=heard,
-                    rationale="HOLD" + (" to point" if goal else " in place") + (" heard" if heard is not None else ""))
+        where = (hold.why if hold is not None else "") or ("to point" if goal else "in place")
+        mode = "PERCH" if perched else ("CLIMB" if hold is not None and hold.climbing else "HOLD")
+        return Plan(mode, goal=goal, face_bearing=heard,
+                    rationale=f"{mode} {where}" + (" heard" if heard is not None else ""))
 
     def _center(self, obs) -> Vec2:
         nc = obs["zone"]["next_center"]
@@ -125,23 +163,25 @@ class HeuristicPlanner:
         cfg, me = self.cfg, obs["self"]
         pos = me["pos"]
         best, best_score, why = None, -1e18, ""
-        endgame = obs["alive"] <= 3
+        endgame = obs["alive"] <= cfg.endgame_alive
+        radius = cfg.threat_radius_mech * (cfg.endgame_mult if endgame else 1.0)
         for m in mechs:
             d = dist2(m["pos"], pos)
             frac = m.get("hp", 1400) / max(m.get("max_hp", 1400), 1.0)
             is_hostile = m["id"] in hostile
-            if not (is_hostile or d < cfg.engage_range or (frac < cfg.engage_low_hp_frac and d < cfg.finish_range)
-                    or (endgame and d < 220)):
-                continue
+            if not (is_hostile or d < radius):
+                continue   # not a threat: watch it, do not shoot (shots give us away and reset our regen)
             score = (1000 if is_hostile else 0) - d - 400 * frac
             if score > best_score:
                 best, best_score = m, score
-                why = f"{m['id']} {'hostile' if is_hostile else 'close' if d < cfg.engage_range else 'weak'} {d:.0f}m"
+                why = f"{m['id']} {'hostile' if is_hostile else 'inside'} {d:.0f}m"
         if best is not None:
             return best, "mech", why
-        for n in npcs:
-            if n["id"] in hostile and dist2(n["pos"], pos) < 90:
-                return n, "npc", f"drone {n['id']}"
+        aggro = self.rules.get("npc", {}).get("aggro_range", 45.0)
+        for n in sorted(npcs, key=lambda n: dist2(n["pos"], pos)):
+            d = dist2(n["pos"], pos)
+            if (n["id"] in hostile and d < 90) or d < aggro:
+                return n, "npc", f"drone {n['id']} {d:.0f}m"
         return None, "", ""
 
     def _loot(self, obs, npcs, hp_frac, zgoal) -> Optional[Plan]:
