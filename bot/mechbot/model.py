@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from .ballistics import aim_at, lead, mortar_pitch, mortar_time, wrap, yaw_to
 from .config import BotConfig
-from .plan import HeuristicPlanner, Hold, Plan, dist2
+from .plan import HeuristicPlanner, Hold, Plan, dist2, zone_now
 from .position import PositionPlanner, Spot
 from .worldmap import PathSearch, WorldMap
 
@@ -115,6 +115,9 @@ class MechBot:
         self.strafe_until = 0.0
         self.hop_t = 0.0
         self.last_plan: Optional[Plan] = None
+        self.drones: Dict[int, Tuple[List[float], float]] = {}     # B2: drone id -> (last seen pos, time)
+        self.lure: Optional[Tuple[float, float]] = None
+        self.lure_t = -1e9
         self.cover: Optional[Tuple[float, float]] = None
         self.cover_t = -1e9
         self.cover_from: Optional[int] = None
@@ -127,10 +130,14 @@ class MechBot:
     def act(self, obs: Dict[str, Any]) -> Dict[str, Any]:
         self._t0 = time.perf_counter()
         self.mem.ingest(obs)
+        for n in obs.get("mechs", []):
+            if n["kind"] == "npc":
+                self.drones[n["id"]] = (list(n["pos"]), obs["t"])
         self._update_spot(obs)
         self.hold = self._hold(obs)
         plan = self.planner.plan(obs, self.mem, self.hold)
         self._maybe_cover(obs, plan)
+        self._kite(obs, plan)
         self.last_plan = plan
         act: Dict[str, Any] = {"tick": obs["tick"]}
         move, boost, jump = self._move(obs, plan)
@@ -318,7 +325,7 @@ class MechBot:
                         mx, my = math.cos(a), math.sin(a)
                         break
 
-        climbing = self.hold is not None and self.hold.climbing and plan.mode not in ("COVER", "ROTATE")
+        climbing = self.hold is not None and self.hold.climbing and plan.mode not in ("COVER", "ROTATE", "KITE")
         if climbing:
             cx, cy, cb, cj = self._climb(obs, mx, my, boost, jump)
             return (cx, cy), cb, cj
@@ -356,6 +363,14 @@ class MechBot:
         threat = self._threat(obs, plan)
         if threat is None:
             return mx, my, boost, jump
+        if plan.mode == "KITE":
+            # B2: run for the lure point, with a little sideways weave; keep shooting (aim is unchanged)
+            by = yaw_to(pos, threat["pos"])
+            px, py = math.cos(by + math.pi / 2) * self.strafe_sign, math.sin(by + math.pi / 2) * self.strafe_sign
+            if t >= self.strafe_until:
+                self.strafe_sign = -self.strafe_sign
+                self.strafe_until = t + self.rng.uniform(cfg.strafe_leg_min_s, cfg.strafe_leg_max_s)
+            return mx + px * 0.3, my + py * 0.3, me["energy"] > cfg.kite_boost_energy, False
         if plan.mode == "COVER" and plan.goal is not None and dist2(pos, plan.goal) < 3.0 and self.wm is not None:
             eye = [threat["pos"][0], threat["pos"][1], threat["pos"][2] + self.mech_rules.get("eye_height", 8.0)]
             if not self.wm.los(eye, [pos[0], pos[1], pos[2] + 8.5]):
@@ -422,6 +437,57 @@ class MechBot:
         if "lightning" in kinds:
             return self.cfg.range_lightning
         return self.cfg.range_gun
+
+    def _kite(self, obs, plan: Plan) -> None:
+        """B2: drone kiting. When a mech that is shooting us chases us, run to a point beyond a known drone, on
+        the far side from the hunter, so its chase passes within the drone's 45 m aggro range (drones shoot any
+        mech that close): see _lure_point for the geometry. The point is inside the zone."""
+        cfg, me, t = self.cfg, obs["self"], obs["t"]
+        if not cfg.drone_kite or self.wm is None or plan.mode != "FIGHT" or plan.target_kind != "mech":
+            return
+        tgt = plan.target
+        if tgt["id"] not in self.mem.hostile_ids(t, cfg.provoked_s):
+            return
+        pos = me["pos"]
+        if dist2(pos, tgt["pos"]) < cfg.kite_min_range:
+            return
+        if self.lure is None or t - self.lure_t > 1.0:
+            self.lure, self.lure_t = self._lure_point(obs, tgt), t
+        if self.lure is None or dist2(pos, self.lure) < 4.0:
+            return
+        plan.mode, plan.goal, plan.boost = "KITE", self.lure, False
+        plan.rationale = f"KITE {tgt['id']} past a drone"
+
+    def _lure_point(self, obs, tgt) -> Optional[Tuple[float, float]]:
+        """A destination P such that our straight route to P passes a live drone just outside its 45 m aggro
+        range (kite_pass_min..kite_pass_max) while the hunter's straight line to P passes within kite_hunter_in
+        of it: the chaser cuts the corner into the drone's range, we skim past. Inside the zone, walkable,
+        nearest first."""
+        cfg, t, pos = self.cfg, obs["t"], obs["self"]["pos"]
+        (cx, cy), cr = zone_now(obs["zone"], t)
+        live = [p for p, seen in self.drones.values() if t - seen < cfg.kite_drone_memory_s]
+        if not live:
+            return None
+
+        def seg_dist(ax, ay, bx, by, q):
+            vx, vy = bx - ax, by - ay
+            v2 = vx * vx + vy * vy or 1e-9
+            u = max(0.0, min(1.0, ((q[0] - ax) * vx + (q[1] - ay) * vy) / v2))
+            return math.hypot(ax + vx * u - q[0], ay + vy * u - q[1])
+
+        for r in (50.0, 75.0, 100.0, 125.0, 150.0):
+            for k in range(16):
+                ang = k * math.pi / 8
+                x, y = pos[0] + math.cos(ang) * r, pos[1] + math.sin(ang) * r
+                if math.hypot(x - cx, y - cy) > cr - 10.0 or not self.wm.free(x, y):
+                    continue
+                ours = [seg_dist(pos[0], pos[1], x, y, q) for q in live]
+                if min(ours) < cfg.kite_pass_min or min(math.hypot(x - q[0], y - q[1]) for q in live) < cfg.kite_pass_min:
+                    continue
+                for q, dq in zip(live, ours):
+                    if dq <= cfg.kite_pass_max and seg_dist(tgt["pos"][0], tgt["pos"][1], x, y, q) <= cfg.kite_hunter_in:
+                        return (x, y)
+        return None
 
     def _steer(self, obs, goal: Tuple[float, float]) -> Tuple[float, float]:
         cfg, me, t = self.cfg, obs["self"], obs["t"]
