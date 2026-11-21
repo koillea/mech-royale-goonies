@@ -21,6 +21,8 @@ class BotConfig:
     endgame_alive: int = 3               # with this few mechs left, widen the mech radius by endgame_mult
     endgame_mult: float = 1.5
     provoked_s: float = 4.0              # an attacker stays "hostile" this long after its last hit on us
+    outnumbered_s: float = 5.0           # E3b: 2+ mechs that hit us within this, or ...
+    outnumbered_range: float = 100.0     # ... are this close and aiming at us -> break off to cover
     finish_frac: float = 0.35            # E2: never run for cover / retreat from a target below this HP fraction
     retreat_hp_frac: float = 0.35        # below this, back away from the fight while still facing it (rear x1.5)
 

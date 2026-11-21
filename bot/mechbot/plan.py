@@ -133,8 +133,19 @@ class HeuristicPlanner:
         if target is not None:
             retreat = (kind == "mech" and hp_frac < cfg.retreat_hp_frac
                        and target.get("hp", 0) >= me["hp"] and obs["alive"] > 2)
+            # E3b: outnumbered = 2+ mechs hit us in the last outnumbered_s, or are close and aiming at us.
+            # Break off to cover (model._maybe_cover acts on retreat; E2 still finishes a nearly dead target).
+            attackers = {i for i in mem.hostile_ids(t, cfg.outnumbered_s) if i < 100}
+            for m in mechs:
+                to_us = math.atan2(pos[1] - m["pos"][1], pos[0] - m["pos"][0])
+                if dist2(m["pos"], pos) < cfg.outnumbered_range and \
+                        abs((to_us - m["aim"][0] + math.pi) % (2 * math.pi) - math.pi) < 0.15:
+                    attackers.add(m["id"])
+            outnumbered = kind == "mech" and len(attackers) >= 2
+            retreat = retreat or outnumbered
             return Plan("FIGHT", goal=goal, target=target, target_kind=kind, retreat=retreat,
-                        rationale=f"FIGHT {why}" + (" from roof" if perched else "") + (" retreat" if retreat else ""))
+                        rationale=f"FIGHT {why}" + (" from roof" if perched else "")
+                        + (f" outnumbered {len(attackers)}" if outnumbered else (" retreat" if retreat else "")))
         bearing = mem.recent_damage_bearing(t, 3.0)
         if bearing is not None:
             return Plan("ALERT", goal=goal, face_bearing=bearing, rationale="ALERT hit from unseen")
