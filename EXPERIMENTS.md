@@ -275,6 +275,14 @@ win 18 %. Both with lasers: win 51.3 % / loss 20.3 %; laser hits ours 97 %, thei
 | D2 | d2 `f1c896c` | gun band 70-170 m (was 35-130) | 58.3 %, +8 (< 10.2) | 51.3 %, 0 | not clear |
 | D3 | d3 `373b3cf` | 1v1: no cover when merely losing on HP | 55.3 %, -1 | 52.7 %, +4 | not clear |
 | D4 | d4 `9078147` | boost while strafing above 20 energy (was 45) | 58.3 %, +8 | **45.3 %, -18: clearly worse** | rejected |
+| D5 | d5 `fc4fa3fbf9f59be98023f4849943b2c975f48632` | gun band 110-190 m (was 35-130): the expert hits 90 % at 0-50 m, 68 % at 50-100, 38 % at 100-150, 23 % beyond; we hit 91/83/78 % | 60.7 %, **+15 (> 13.4): clear** | loot mode +5 (not clear) | candidate |
+| D6 | d6 `a73db34` | hop every ~1 s above 30 energy (was ~2.5 s above 60) | 48.3 %, **-22: clearly worse** | loot mode -21 | rejected |
+| D1+D5 | d15 `ec350c1f0cf961018539f068f522fdfa72037b51` | D5 on top of D1 | vs D1: 63.7 % vs 63.0 %, net +2 (not clear); losses 5.3 -> 3.0 %, their hits 53 -> 49 % | - | candidate if D1 beats 3.77 |
+
+1v2 (us vs two experts, both hunting, 200 seeds): champ wins 0.5 %, loses 67.5 %, median survival 25.0 s, 0.28 kills;
+D1 0.33 kills, survival 25.7 s; D5 0.30 kills, survival 28.6 s; D6 0.21 kills, 19.7 s. Nothing changes the 1v2
+outcome much: two experts beat us about 2 times in 3.
+Loot on the map (1v1, 200 seeds): we pick up a laser in 19-24 % of duels (median ~9 s), the expert in 4 %.
 
 Response time: p99 11-15 ms in every duel run; occasional single decisions of 37-54 ms move at random between
 runs (identical play, so environmental, not the bot's computation); the real bot process in the scorer's Docker
