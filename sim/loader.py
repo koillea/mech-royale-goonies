@@ -25,6 +25,7 @@ VERSIONS = {
     "try-b": "try-b",
     "try-c": "try-c",
     "try-d": "try-d",
+    "try-e": "try-e",
 }
 REAL_SCORES = {"example": 1.15, "v1": 3.21, "v3": 3.52, "v4": 2.58, "abc": 2.90, "v5": 3.19}
 
