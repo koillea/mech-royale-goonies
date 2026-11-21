@@ -92,7 +92,7 @@ class BotConfig:
     hop_every_s: float = 2.5
     # range bands (min, max metres) per best weapon held: gun spread is 0.6 deg (about 1 m at 100 m) and
     # range 230; laser reaches 280 and needs no lead; lightning reaches only 45.
-    range_gun: tuple = (35.0, 130.0)
+    range_gun: tuple = (70.0, 170.0)     # D2: was (35, 130)
     range_laser: tuple = (60.0, 200.0)
     range_lightning: tuple = (12.0, 38.0)
 
