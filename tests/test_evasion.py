@@ -1,13 +1,8 @@
-"""Open-ground evasion (used up close and when no cover is in reach): keep moving across the line of fire.
-Cover-first combat is switched off here to test the strafing layer on its own; see test_combat.py."""
+"""The bot must keep moving across the line of fire whenever it shoots or is shot at."""
 import copy
 import math
 
-from mechbot import BotConfig, MechBot
-
-
-def Bot(hello):
-    return MechBot(hello, BotConfig(cover_first=False))
+from mechbot import MechBot
 
 
 def _attacked(observations, dist=90.0, weapons=("gun",)):
@@ -22,7 +17,7 @@ def _attacked(observations, dist=90.0, weapons=("gun",)):
 
 
 def test_moves_across_line_of_fire_when_attacked(hello, observations):
-    bot = Bot(hello)
+    bot = MechBot(hello)
     o = _attacked(observations)
     o["zone"]["next_center"] = o["self"]["pos"][:2]   # already at the hold point: nothing else to move for
     a = bot.act(o)
@@ -33,7 +28,7 @@ def test_moves_across_line_of_fire_when_attacked(hello, observations):
 
 
 def test_strafe_legs_reverse_at_irregular_intervals(hello, observations):
-    bot = Bot(hello)
+    bot = MechBot(hello)
     o = _attacked(observations)
     o["zone"]["next_center"] = o["self"]["pos"][:2]
     signs, flips = [], []
@@ -53,14 +48,14 @@ def test_strafe_legs_reverse_at_irregular_intervals(hello, observations):
 
 
 def test_backs_off_when_too_close(hello, observations):
-    bot = Bot(hello)
+    bot = MechBot(hello)
     o = _attacked(observations, dist=20.0)
     o["zone"]["next_center"] = o["self"]["pos"][:2]
     assert bot.act(o)["move"][0] < 0                   # enemy is east: move west
 
 
 def test_replay_never_idles_while_firing_at_a_mech(hello, observations):
-    bot = Bot(hello)
+    bot = MechBot(hello)
     idle = 0
     for o in observations:
         a = bot.act(o)

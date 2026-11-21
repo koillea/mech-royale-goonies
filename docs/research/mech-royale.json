@@ -108,10 +108,6 @@
     {
       "what": "recorded match: kit bot",
       "result": "13th place; lost ~950 HP to laser shots from 150 m answered with the gun"
-    },
-    {
-      "what": "decision time after v4 hardening",
-      "result": "replay max 7.8 ms locally (was 24-35 ms: one A* step of 2500 nodes); A* now stops at a 2.5 ms deadline"
     }
   ],
   "submissions": [
@@ -124,12 +120,26 @@
       "note": "survivor bot"
     },
     {
-      "version": "v3 (most likely)",
+      "version": "v3",
       "commit": "5db062e",
       "submitted": "Fri 9:24 PM ET",
       "score": 3.52,
       "wait_ms": 143,
-      "note": "main was at v3 from 9:22 PM ET; v2 (9:16 PM) was never submitted on its own. 'wait 143 ms' is not explained on the page; if it is the slowest decision it exceeded the 50 ms budget, which v4 addresses"
+      "note": "strafing + positional play (v2 was never scored alone). Best so far; entered in the final"
+    },
+    {
+      "version": "v4",
+      "commit": "9cd3063",
+      "submitted": "Fri 9:37 PM ET",
+      "score": 2.58,
+      "wait_ms": 46,
+      "note": "bundled cover-first combat + 130 m laser detour + speed fix, against the one-change rule; cannot attribute the drop. wait fell 143 -> 46 ms, consistent with the speed fix working"
     }
+  ],
+  "plan": [
+    "A (main): v3 + speed fix only. Isolates whether late decisions cost points.",
+    "B (branch aim): A + aim refinements (motion prediction, pre-aim, rear-arc preference).",
+    "C (branch intel): B + threat tracking from sounds/beams/bullets/damage used for cover and firing angles.",
+    "Each is submitted alone; keep a change only if it beats the best score so far."
   ]
 }

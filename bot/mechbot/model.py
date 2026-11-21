@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from .ballistics import aim_at, lead, mortar_pitch, mortar_time, wrap, yaw_to
 from .config import BotConfig
-from .plan import HeuristicPlanner, Hold, Plan, dist2, zone_now
+from .plan import HeuristicPlanner, Hold, Plan, dist2
 from .position import PositionPlanner, Spot
 from .worldmap import PathSearch, WorldMap
 
@@ -37,9 +37,6 @@ class Memory:
         self.dmg_by: Optional[int] = None
         self.sounds: List[Tuple[float, float, str]] = []   # (t, bearing, dist)
         self.took_damage_t = -1e9
-        self.mech_shot_t = -1e9                      # last time a mech (id < 100) damaged us
-        self.mech_shot_by: Optional[int] = None
-        self.mech_shot_bearing: Optional[float] = None
 
     def ingest(self, obs: Dict[str, Any]) -> None:
         t = obs["t"]
@@ -49,18 +46,12 @@ class Memory:
                 if e.get("by") is not None:
                     self.attackers[int(e["by"])] = t
                     self.dmg_by = int(e["by"])
-                    if int(e["by"]) < 100:
-                        self.mech_shot_t, self.mech_shot_by = t, int(e["by"])
-                        self.mech_shot_bearing = e.get("bearing")
                 if e.get("bearing") is not None:
                     self.dmg_bearing, self.dmg_t = e["bearing"], t
         for s in obs.get("sounds", []):
             if s["kind"] in LOUD and s["dist"] in ("near", "mid"):
                 self.sounds.append((t - s.get("age", 0), s["bearing"], s["dist"]))
         self.sounds = [s for s in self.sounds if t - s[0] < 3.0][-20:]
-
-    def shot_recently(self, t: float, window: float) -> bool:
-        return t - self.mech_shot_t < window
 
     def hostile_ids(self, t: float, window: float) -> set:
         return {k for k, v in self.attackers.items() if t - v < window}
@@ -126,12 +117,7 @@ class MechBot:
         self.last_plan: Optional[Plan] = None
         self.cover: Optional[Tuple[float, float]] = None
         self.cover_t = -1e9
-        self.cover_from: Optional[List[float]] = None
-        self.cstate: Optional[str] = None            # TAKE_COVER | COVERED | PEEK
-        self.covered_t0 = -1e9
-        self.peek: Optional[Tuple[float, float]] = None
-        self.peek_t0 = -1e9
-        self.peek_for: Optional[Tuple[float, float]] = None
+        self.cover_from: Optional[int] = None
         gc.collect()
         gc.freeze()   # the map's objects never die: keep the collector from rescanning them mid-match
         log(f"{self.name}: init {time.time() - t0:.2f}s map={'ok' if self.wm else 'none'} "
@@ -144,7 +130,7 @@ class MechBot:
         self._update_spot(obs)
         self.hold = self._hold(obs)
         plan = self.planner.plan(obs, self.mem, self.hold)
-        self._combat(obs, plan)
+        self._maybe_cover(obs, plan)
         self.last_plan = plan
         act: Dict[str, Any] = {"tick": obs["tick"]}
         move, boost, jump = self._move(obs, plan)
@@ -225,130 +211,47 @@ class MechBot:
             boost = pos[2] < p.top + 1.0 and me["energy"] > 1
         return mx, my, boost, jump
 
-    # ================================================================== cover-first combat
-    def _combat(self, obs, plan: Plan) -> None:
-        """Cover first, then shoot. Against a mech we never trade shots in the open:
-            TAKE_COVER  exposed to the threat (or just shot): run to the nearest spot it cannot see, firing if clear
-            COVERED     hidden: reload, let the laser cool, regenerate, face the threat
-            PEEK        ready (ammo, laser, HP): step to the nearest point that sees the target, shoot, and go back to
-                        cover the moment we are hit, run dry, the laser has fired, or peek_max_s runs out
-        Up close (brawl_range) or with no cover in reach we fight in the open with strafing (_evade)."""
-        cfg, me, t = self.cfg, obs["self"], obs["t"]
-        if self.wm is None or not cfg.cover_first:
-            self.cstate = None
+    # ================================================================== cover
+    def _maybe_cover(self, obs, plan: Plan) -> None:
+        """Break line of sight when a fight is bad for us: a laser outranges our gun, or we are losing on HP."""
+        if self.wm is None or plan.mode != "FIGHT" or plan.target_kind != "mech":
             return
-        threat = None
-        if plan.mode == "FIGHT" and plan.target_kind == "mech":
-            threat = list(plan.target["pos"])
-        elif plan.mode in ("ALERT", "FIGHT") and self.mem.shot_recently(t, cfg.provoked_s) \
-                and self.mem.mech_shot_bearing is not None:
-            b = self.mem.mech_shot_bearing           # shot by a mech we cannot see: assume it is out along the bearing
-            p = me["pos"]
-            threat = [p[0] + math.cos(b) * cfg.unseen_dist, p[1] + math.sin(b) * cfg.unseen_dist, p[2]]
-        if threat is None:
-            self.cstate = None
+        me, tgt, t = obs["self"], plan.target, obs["t"]
+        d = dist2(me["pos"], tgt["pos"])
+        laser = "laser" in tgt.get("weapons", []) and not any(w and w["kind"] == "laser" for w in me["weapons"])
+        losing = me["hp"] < tgt.get("hp", 1400) * 0.8
+        if not (plan.retreat or (laser and d > 60) or (losing and d > 45)):
             return
-        pos = me["pos"]
-        d = dist2(pos, threat)
-        if d < cfg.brawl_range:
-            self.cstate = None
-            return
-        eye = [threat[0], threat[1], threat[2] + self.mech_rules.get("eye_height", 8.0)]
-        top = 9.0 * (1 + 0.05 * me.get("cubes", 0))
-        exposed = self.wm.los(eye, [pos[0], pos[1], pos[2] + top - 0.3])
-        shot_now = self.mem.shot_recently(t, cfg.shot_window_s)
+        if self.cover_from != tgt["id"] or t - self.cover_t > 1.0:
+            self.cover = self._find_cover(me, tgt)
+            self.cover_t, self.cover_from = t, tgt["id"]
+        if self.cover is not None:
+            plan.goal = self.cover
+            plan.retreat = False
+            plan.boost = True
+            plan.mode = "COVER"
+            plan.rationale = f"COVER from {tgt['id']} {d:.0f}m"
 
-        # (re)find cover when the threat moved, the old spot is seen, or it is stale
-        at_cover = self.cover is not None and dist2(pos, self.cover) < 2.5
-        if (self.cover is None or self.cover_from is None or dist2(self.cover_from, threat) > 10.0
-                or (at_cover and exposed) or (not at_cover and t - self.cover_t > 1.5)):
-            self.cover = self._find_cover(me, eye, obs)
-            self.cover_t, self.cover_from = t, threat
-            at_cover = self.cover is not None and dist2(pos, self.cover) < 2.5
-        if self.cover is None:
-            self.cstate = None                       # nowhere to hide: fight in the open (strafing)
-            return
-
-        hp_frac = me["hp"] / max(me["max_hp"], 1.0)
-        ws = [w for w in me["weapons"] if w]
-        gun = next((w for w in ws if w["kind"] == "gun"), None)
-        laser = next((w for w in ws if w["kind"] == "laser"), None)
-        gun_ready = gun is not None and gun.get("reload", 0) == 0 and gun.get("ammo", 0) >= gun["stats"].get("mag", 12) * 0.5
-        laser_ready = laser is not None and laser.get("cooldown", 0) <= 0.05
-        gun_dry = gun is None or gun.get("ammo", 0) == 0 or gun.get("reload", 0) > 0
-        if self.cstate == "PEEK":
-            done = ((shot_now and self.mem.mech_shot_t > self.peek_t0 + 0.2)
-                    or (gun_dry and not laser_ready) or t - self.peek_t0 > cfg.peek_max_s
-                    or hp_frac < cfg.peek_min_hp or plan.mode != "FIGHT")
-            if done:
-                self.cstate = "TAKE_COVER"
-        if self.cstate != "PEEK":
-            prev = self.cstate
-            self.cstate = "COVERED" if (at_cover and not exposed) else "TAKE_COVER"
-            if self.cstate == "COVERED" and prev != "COVERED":
-                self.covered_t0 = t                  # just got into cover
-        if self.cstate == "COVERED" and plan.mode == "FIGHT" and (gun_ready or laser_ready) \
-                and hp_frac >= cfg.peek_min_hp and t - self.covered_t0 >= cfg.min_cover_s:
-            tc = [plan.target["pos"][0], plan.target["pos"][1], plan.target["pos"][2] + 4.5]
-            if self.peek is None or self.peek_for is None or dist2(self.peek_for, tc) > 6.0:
-                self.peek, self.peek_for = self._find_peek(me, self.cover, tc), (tc[0], tc[1])
-            if self.peek is not None:
-                self.cstate, self.peek_t0 = "PEEK", t
-
-        tid = plan.target["id"] if plan.target is not None and plan.target_kind == "mech" else "?"
-        if self.cstate == "TAKE_COVER":
-            plan.mode, plan.goal, plan.boost = "COVER", self.cover, True
-            plan.rationale = f"COVER from {tid} {d:.0f}m" + (" shot" if shot_now else "")
-        elif self.cstate == "COVERED":
-            plan.mode, plan.goal, plan.boost = "COVERED", None, False
-            plan.face_bearing = yaw_to(pos, threat)
-            plan.rationale = f"COVERED from {tid} {d:.0f}m hp {hp_frac:.0%}"
-        else:
-            plan.mode, plan.goal, plan.boost = "PEEK", self.peek, False
-            plan.rationale = f"PEEK at {tid} {d:.0f}m"
-        plan.retreat = False
-
-    def _in_zone(self, obs, x: float, y: float, margin: float = 5.0) -> bool:
-        (cx, cy), cr = zone_now(obs["zone"], obs["t"])
-        return math.hypot(x - cx, y - cy) < cr - margin
-
-    def _find_cover(self, me, eye, obs) -> Optional[Tuple[float, float]]:
-        """Nearest walkable point (inside the zone) whose whole mech height the threat's eye cannot see."""
+    def _find_cover(self, me, tgt) -> Optional[Tuple[float, float]]:
         wm, pos = self.wm, me["pos"]
         zr = pos[2] if self._elevated(me) else None      # on a roof: cover means stepping back from its edge
+        eye = [tgt["pos"][0], tgt["pos"][1], tgt["pos"][2] + self.mech_rules.get("eye_height", 8.0)]
         best, bd = None, 1e18
-        away = yaw_to(eye, pos)
-        for r in (4.0, 7.0, 10.0, 14.0, 19.0, 25.0, 32.0, 40.0):
+        away = yaw_to(tgt["pos"], pos)
+        for r in (6.0, 10.0, 15.0, 21.0, 28.0, 36.0):
             for k in range(16):
                 a = away + (k - 8) * math.pi / 8
                 x, y = pos[0] + math.cos(a) * r, pos[1] + math.sin(a) * r
-                if not wm.walk_ok(x, y, zr) or not self._in_zone(obs, x, y):
+                if not wm.walk_ok(x, y, zr):
                     continue
                 g = zr if zr is not None else wm.ground(x, y)
-                if wm.los(eye, [x, y, g + 9.0]) or wm.los(eye, [x, y, g + 4.5]):
+                if wm.los(eye, [x, y, g + 8.5]):
                     continue
                 cost = r + 0.3 * abs(wrap(a - away)) * r
                 if cost < bd and self._line_ok(pos, (x, y), zr):
                     best, bd = (x, y), cost
             if best is not None:
                 return best
-        return None
-
-    def _find_peek(self, me, cover, tc) -> Optional[Tuple[float, float]]:
-        """Nearest point to the cover spot from which our muzzle sees the target, reachable in a straight line."""
-        wm, pos = self.wm, me["pos"]
-        zr = pos[2] if self._elevated(me) else None
-        mh = me["stats"].get("muzzle_height", 7.0)
-        toward = yaw_to(cover, tc)
-        for r in (3.0, 4.5, 6.0, 8.0, 11.0):
-            for k in range(12):
-                a = toward + ((k + 1) // 2) * (1 if k % 2 else -1) * math.pi / 6
-                x, y = cover[0] + math.cos(a) * r, cover[1] + math.sin(a) * r
-                if not wm.walk_ok(x, y, zr):
-                    continue
-                g = zr if zr is not None else wm.ground(x, y)
-                if wm.los([x, y, g + mh], tc) and self._line_ok([cover[0], cover[1], 0.0], (x, y), zr):
-                    return (x, y)
         return None
 
     def _line_ok(self, pos, b, zr) -> bool:
@@ -414,7 +317,7 @@ class MechBot:
                         mx, my = math.cos(a), math.sin(a)
                         break
 
-        climbing = self.hold is not None and self.hold.climbing and plan.mode not in ("COVER", "COVERED", "PEEK", "ROTATE")
+        climbing = self.hold is not None and self.hold.climbing and plan.mode not in ("COVER", "ROTATE")
         if climbing:
             cx, cy, cb, cj = self._climb(obs, mx, my, boost, jump)
             return (cx, cy), cb, cj
@@ -452,8 +355,11 @@ class MechBot:
         threat = self._threat(obs, plan)
         if threat is None:
             return mx, my, boost, jump
-        if plan.mode in ("COVER", "COVERED", "PEEK"):
-            return mx, my, boost, jump              # cover-first combat moves on purpose: no strafing on top
+        if plan.mode == "COVER" and plan.goal is not None and dist2(pos, plan.goal) < 3.0 and self.wm is not None:
+            eye = [threat["pos"][0], threat["pos"][1], threat["pos"][2] + self.mech_rules.get("eye_height", 8.0)]
+            if not self.wm.los(eye, [pos[0], pos[1], pos[2] + 8.5]):
+                return mx, my, boost, jump          # hidden: stay put, regen
+            self.cover_t = -1e9                     # cover is not hiding us: search again next decision
         by = yaw_to(pos, threat["pos"])
         d = dist2(pos, threat["pos"])
         if t >= self.strafe_until:
@@ -477,8 +383,8 @@ class MechBot:
         elif d > hi and plan.mode == "FIGHT":
             radial = 0.5
         rx, ry = math.cos(by) * radial, math.sin(by) * radial
-        if plan.mode == "ROTATE":
-            # the zone goal comes first; strafe on top of it
+        if plan.mode in ("ROTATE", "COVER"):
+            # the zone or cover goal comes first; strafe on top of it
             mx, my = mx + px * 0.6, my + py * 0.6
         else:
             mx, my = mx * 0.4 + px + rx, my * 0.4 + py + ry
@@ -517,8 +423,7 @@ class MechBot:
         cfg, me, t = self.cfg, obs["self"], obs["t"]
         pos = me["pos"]
         d = dist2(pos, goal)
-        arrive = 0.7 if self.last_plan is not None and self.last_plan.mode in ("PEEK", "COVER") else 2.0
-        if d < arrive:
+        if d < 2.0:
             return 0.0, 0.0
         wm = self.wm
         if wm is None or self._elevated(me) or wm.line_walkable((pos[0], pos[1]), goal):
@@ -645,10 +550,7 @@ class MechBot:
             elif k == "mortar":
                 own_splash = d < s.get("splash_radius", 7) * 2.5
                 fire[i] = aim_mode == "mortar" and yaw_err < 0.03 and pitch_err < 0.03 and not own_splash
-        gun = ws[0] if ws and ws[0] and ws[0]["kind"] == "gun" else None
-        reload_ = bool(plan.mode == "COVERED" and gun and gun.get("reload", 0) == 0
-                       and gun.get("ammo", 12) < gun["stats"].get("mag", 12))   # reload while hidden
-        return (yaw, pitch), fire, reload_
+        return (yaw, pitch), fire, False
 
     # ================================================================== offers + pickups
     def _offer(self, obs, act) -> None:

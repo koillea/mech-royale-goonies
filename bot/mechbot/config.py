@@ -23,18 +23,6 @@ class BotConfig:
     provoked_s: float = 4.0              # an attacker stays "hostile" this long after its last hit on us
     retreat_hp_frac: float = 0.35        # below this, back away from the fight while still facing it (rear x1.5)
 
-    # --- cover-first combat (model._combat). Against a mech we never trade shots in the open: get out of its
-    # line of sight first (being shot is the top priority), then peek out to shoot and duck back in. Hidden we
-    # reload, the laser cools and HP regenerates (45 HP/s after 5 s without damage, section 7 Health).
-    cover_first: bool = True
-    shot_window_s: float = 1.0           # "being shot at" = a mech damaged us this recently
-    zone_beats_cover_dps: float = 60.0   # outside the zone at this dps or more, the zone outranks cover
-    unseen_dist: float = 100.0           # shot by a mech we cannot see: assume it stands this far along the bearing
-    brawl_range: float = 18.0            # closer than this there is no time to hide: fight in the open
-    min_cover_s: float = 0.8             # stay hidden at least this long before peeking
-    peek_max_s: float = 2.2              # longest peek (a full laser charge is 0.75 s, 12 gun rounds 2.9 s)
-    peek_min_hp: float = 0.3             # below this HP fraction, stay hidden and let it regenerate
-
     # --- zone (section 9). Hold near the edge of the next circle on our side: shortest moves, fewest fights.
     hold_frac_early: float = 0.55        # target radius fraction of the next circle while it is large
     hold_frac_late: float = 0.35         # once next_radius <= late_radius
@@ -44,7 +32,6 @@ class BotConfig:
 
     # --- loot (section 7 Weapon loot, section 10 Cubes)
     loot_radius: float = 55.0            # detour for a weapon or cube no further than this
-    laser_loot_radius: float = 130.0     # ...but go much further for a laser: 315 hitscan damage at 280 m, no lead
     loot_until_t: float = 260.0          # stop looting once the circles are small and fights are constant
     crate_radius: float = 45.0
     crate_min_hp_frac: float = 0.7
