@@ -39,7 +39,8 @@ beat the previous champion locally.
 
 | | |
 |---|---|
-| Champion | **champ-3.69** (branch; also `champ-v3.1`) = git `8611ff7`, bot code identical to `bbd6f57` |
+| Champion | **champ-3.77** (branch) = E6 on champ-3.69, git `f579248243f7207ddba7c3afa2960b7d441c1694` |
+| Previous | champ-3.69 (branch; also `champ-v3.1`) = git `8611ff7`, bot code identical to `bbd6f57` |
 | Official score | 3.69 (one 48-match run, Fri 11:09 PM ET); the same play without the speed fix (v3) scored 3.52 |
 | Run-to-run noise | about +-0.5 per 48-match run (spread of placement points per match ~3.5-4.5) |
 
@@ -206,12 +207,24 @@ tests, quality gate and check.py in the scorer's Docker sandbox pass (max 5-7 ms
 
 | id | branch | full commit | change | official |
 |---|---|---|---|---|
-| E6 | ce6 | `f579248243f7207ddba7c3afa2960b7d441c1694` | cubes all match (roofs, mechs near, mid-fight within 25 m; not with 2+ attackers; inside zone) | pending (submitted first) |
+| E6 | ce6 | `f579248243f7207ddba7c3afa2960b7d441c1694` | cubes all match (roofs, mechs near, mid-fight within 25 m; not with 2+ attackers; inside zone) | **3.77** (BB-9D1FB3DD, main `5670442`): new best, **KEPT -> champ-3.77**. +0.08 is inside the ~0.5 run-to-run noise |
 | E7 | ce7 | `4c2447fb16186a38333106f923e225e7b6be3117` | plating before armor | pending |
 | E8 | ce8 | `3020940f9b134974f29183e02efc6c7e3c88b819` | opening: up to 150 m for a laser when not attacked | pending (E8 on e2b scored 3.50) |
 | E9 | ce9 | `48934d84016c09b8d7439d871e87a0fa3170bd1b` | below 70 % and not hit: no new fights until 95 % | pending |
 
 Plan: each alone on main, submitted in turn; then the ones that beat 3.69 are combined.
+
+## E7-E9 rebuilt on champ-3.77 (one change each on E6)
+
+Quick check per branch: 30 matches, no crashes, p99 ~5 ms; ne9 one decision at 25.3 ms. check.py in the
+scorer's Docker sandbox passes (ne7 max 7.0, ne9 7.6, ne8 5.0/6.4 on reruns; one 32.6 ms right after a Docker
+daemon restart did not repeat).
+
+| id | branch | full commit | change | official |
+|---|---|---|---|---|
+| E8 | ne8 | `57083018f6c3f0ae242b456cb20d1609761642e8` | opening: up to 150 m for a laser when not attacked (merged by hand next to E6) | pending (submitted next) |
+| E7 | ne7 | `85b2a8481b793f283804987b5e1ac7cb7108a389` | plating before armor | pending |
+| E9 | ne9 | `a78da01b71ac363b41bc4d93162f7eeeff042ee4` | below 70 % and not hit: no new fights until 95 % | pending |
 
 ## E5 data (first-minute deaths, champion, 200 seeds)
 

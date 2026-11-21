@@ -34,6 +34,9 @@ class BotConfig:
     cube_hunt: bool = True               # E6: cubes all match, from roofs too, with mechs near (not 2+ attackers)
     cube_radius: float = 60.0            # E6: out of a fight, go for cubes this close (inside the zone)
     cube_fight_radius: float = 25.0      # E6: mid-fight with one attacker, step onto cubes this close
+    early_laser_until_t: float = 90.0    # E8: the opening
+    early_laser_radius: float = 150.0    # E8: go this far out of the way for a laser
+    early_laser_clear: float = 60.0      # E8: ...unless a visible mech is this close to it
     loot_radius: float = 55.0            # detour for a weapon or cube no further than this
     loot_until_t: float = 260.0          # stop looting once the circles are small and fights are constant
     crate_radius: float = 45.0
