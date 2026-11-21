@@ -40,7 +40,7 @@ class BotConfig:
     drop_radius: float = 70.0            # contest a supply drop only if it lands this close
 
     # --- position (position.py). Height first: roofs see further, shoot down, sit out of drone reach.
-    use_perches: bool = False            # v3.2: hide at covered ground spots instead of perching on roofs (seen from 200 m)
+    use_perches: bool = False            # try-e: hide on covered ground instead of perching on roofs
     perch_min_height: float = 6.0        # lower roofs give little advantage
     perch_min_cells: int = 6             # interior roof cells (3 m each) needed to strafe without falling off
     climb_safety: float = 0.8            # use 80 % of the tank's theoretical climb (protocol: ~60 m on 100 energy)
