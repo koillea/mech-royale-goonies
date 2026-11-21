@@ -141,17 +141,9 @@
       "submitted": "Fri 10:14 PM ET",
       "score": 3.19,
       "wait_ms": 428
-    },
-    {
-      "version": "v3.1",
-      "commit": "bbd6f57",
-      "submitted": "Fri 11:09 PM ET",
-      "score": 3.69,
-      "wait_ms": 259,
-      "note": "v3 + decision-time fix. New best, +0.17 over v3 (within the ~0.5 run-to-run noise). wait 259 ms while max decision time is < 20 ms in every test: 'wait' is not decision time"
     }
   ],
   "plan": [
-    "v3.2 (main): v3.1 with roof perching off (use_perches=False): hide at covered ground spots. Hypothesis: a roof is visible from 200 m all round and the house bots share vision, so perching draws the hunt."
+    "v3.1 (main): v3 + decision-time fix only: A* stops at a 2.5 ms deadline, perch geometry precomputed, gc.freeze(), and spot re-scoring and route search never share a decision. Play is v3's."
   ]
 }

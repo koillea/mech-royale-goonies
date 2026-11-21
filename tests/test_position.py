@@ -10,7 +10,7 @@ from mechbot.position import PositionPlanner
 
 @pytest.fixture(scope="module")
 def pp(wm, hello):
-    return PositionPlanner(wm, BotConfig(use_perches=True), hello["config"])
+    return PositionPlanner(wm, BotConfig(), hello["config"])
 
 
 def calm(observations):
@@ -63,7 +63,7 @@ def test_bad_perch_is_avoided(pp, observations):
 
 
 def _at_launch(hello, observations, energy):
-    bot = MechBot(hello, BotConfig(use_perches=True))
+    bot = MechBot(hello)
     o = calm(observations)
     bot.act(o)                                   # choose the spot
     sp = bot.spot
@@ -92,7 +92,7 @@ def test_waits_for_energy_then_jets_up(hello, observations):
 
 
 def test_strafes_but_stays_on_roof_under_fire(hello, observations):
-    bot = MechBot(hello, BotConfig(use_perches=True))
+    bot = MechBot(hello)
     o = calm(observations)
     bot.act(o)
     sp = bot.spot
@@ -114,8 +114,7 @@ def test_strafes_but_stays_on_roof_under_fire(hello, observations):
 
 @pytest.mark.parametrize("kind,dist,hostile,fights", [
     ("mech", 150, False, False),     # far and not shooting at us: watch, do not shoot
-    ("mech", 60, False, False),      # try-c: outside the 40 m radius and not shooting at us
-    ("mech", 30, False, True),       # inside the 40 m threat radius
+    ("mech", 60, False, True),       # inside the threat radius
     ("mech", 150, True, True),       # it shot us
     ("npc", 40, False, True),        # a drone inside its aggro range will shoot anyway
     ("npc", 80, False, False),
@@ -133,10 +132,3 @@ def test_fight_only_when_needed(hello, observations, kind, dist, hostile, fights
         o["events"] = [{"type": "damaged", "amount": 45, "weapon": "gun", "bearing": 0.0, "by": 9}]
     bot.act(o)
     assert (bot.last_plan.target is not None) == fights
-
-
-def test_try_e_default_hides_on_ground(hello, observations):
-    bot = MechBot(hello)
-    o = calm(observations)
-    bot.act(o)
-    assert bot.spot.kind == "ground"

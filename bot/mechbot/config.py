@@ -17,9 +17,9 @@ class BotConfig:
     # so keeping HP high (regen needs 5 s without dealing or taking damage, section 7 Health) is the core plan.
     # Fight only when we must: a mech that hit us, a mech inside threat_radius_mech, or a drone inside its own
     # aggro range (npc.aggro_range, 45 m, section 7 NPC drones) or one that hit us. Everything else is watched.
-    threat_radius_mech: float = 40.0     # try-c: was 90; still always shoots back at a mech that hit us
+    threat_radius_mech: float = 90.0
     endgame_alive: int = 3               # with this few mechs left, widen the mech radius by endgame_mult
-    endgame_mult: float = 2.25           # keeps v3's endgame radius: 40 x 2.25 = 90 m with 3 or fewer left
+    endgame_mult: float = 1.5
     provoked_s: float = 4.0              # an attacker stays "hostile" this long after its last hit on us
     retreat_hp_frac: float = 0.35        # below this, back away from the fight while still facing it (rear x1.5)
 
@@ -33,14 +33,13 @@ class BotConfig:
     # --- loot (section 7 Weapon loot, section 10 Cubes)
     loot_radius: float = 55.0            # detour for a weapon or cube no further than this
     loot_until_t: float = 260.0          # stop looting once the circles are small and fights are constant
-    shoot_crates: bool = False           # try-b: gunfire carries 320 m, a breaking crate 220 m (section 8)
     crate_radius: float = 45.0
     crate_min_hp_frac: float = 0.7
     weapon_pref: List[str] = field(default_factory=lambda: ["laser", "lightning", "mortar"])
     drop_radius: float = 70.0            # contest a supply drop only if it lands this close
 
     # --- position (position.py). Height first: roofs see further, shoot down, sit out of drone reach.
-    use_perches: bool = False            # try-e: hide on covered ground instead of perching on roofs
+    use_perches: bool = True
     perch_min_height: float = 6.0        # lower roofs give little advantage
     perch_min_cells: int = 6             # interior roof cells (3 m each) needed to strafe without falling off
     climb_safety: float = 0.8            # use 80 % of the tank's theoretical climb (protocol: ~60 m on 100 energy)
@@ -59,12 +58,6 @@ class BotConfig:
     w_crowd: float = 0.8
     w_npc: float = 0.6
     w_stay: float = 0.25
-
-    # --- try-d: close laser grab (315 hitscan damage at 280 m, no lead): worth a short trip even from our spot,
-    # then straight back (taking it re-picks the spot)
-    laser_grab: bool = True
-    laser_grab_radius: float = 40.0
-    laser_grab_clear: float = 80.0       # skip it if a seen mech is this close to it
 
     # --- NPC drones aggro at 45 m with line of sight (section 7 NPC drones)
     npc_avoid: float = 55.0
