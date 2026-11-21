@@ -100,6 +100,13 @@ class MechBot:
         self.bad_perch: Dict[int, float] = {}
         self.climb_t0: Optional[float] = None
         self.climb_wait_t0: Optional[float] = None
+        self.pb_state: Optional[str] = None      # PEEK | DUCK
+        self.pb_t = -1e9
+        self.pb_target: Optional[int] = None
+        self.pb_from: Optional[List[float]] = None
+        self.pb_cover: Optional[Tuple[float, float]] = None
+        self.pb_peek: Optional[Tuple[float, float]] = None
+        self.pb_found_t = -1e9
         self.hold: Optional[Hold] = None
         self.path: Optional[List[Tuple[float, float]]] = None
         self.path_goal: Optional[Tuple[float, float]] = None
@@ -134,6 +141,7 @@ class MechBot:
         self.hold = self._hold(obs)
         plan = self.planner.plan(obs, self.mem, self.hold)
         self._maybe_cover(obs, plan)
+        self._peek_burst(obs, plan)
         self.last_plan = plan
         act: Dict[str, Any] = {"tick": obs["tick"]}
         move, boost, jump = self._move(obs, plan)
@@ -287,6 +295,90 @@ class MechBot:
             return z
         return None
 
+    # ================================================================== corner fighting
+    def _peek_burst(self, obs, plan: Plan) -> None:
+        """Fight from a corner when one is right there: PEEK (stand at a point that sees the target, fire a short
+        burst) then DUCK (step back out of its sight, reload if low), and repeat. Only for a fight already chosen
+        by the planner, on the ground, with cover within pb_radius; never a long run to cover. Otherwise the
+        normal strafing fight goes on (seen on the cast: strong bots peek with bursts and never fully commit)."""
+        cfg, me, t = self.cfg, obs["self"], obs["t"]
+        if (not cfg.peek_burst or self.wm is None or plan.mode != "FIGHT" or plan.target_kind != "mech"
+                or self._elevated(me)):
+            self.pb_state = None
+            return
+        tgt, pos = plan.target, me["pos"]
+        d = dist2(pos, tgt["pos"])
+        if d < cfg.pb_min_range or d > cfg.pb_max_range:
+            self.pb_state = None
+            return
+        tc = [tgt["pos"][0], tgt["pos"][1], tgt["pos"][2] + 4.5]
+        eye = [tgt["pos"][0], tgt["pos"][1], tgt["pos"][2] + self.mech_rules.get("eye_height", 8.0)]
+        moved = self.pb_from is None or dist2(self.pb_from, tgt["pos"]) > 8.0 \
+            or (self.pb_cover is not None and dist2(pos, self.pb_cover) > cfg.pb_radius + 3.0)   # we walked away
+        if self.pb_target != tgt["id"] or moved or self.pb_cover is None and t - self.pb_found_t > 1.0:
+            self.pb_cover, self.pb_peek = self._find_corner(me, eye, tc)
+            self.pb_target, self.pb_from, self.pb_found_t = tgt["id"], list(tgt["pos"]), t
+            if self.pb_state is not None and self.pb_cover is not None:
+                self.pb_state, self.pb_t = "PEEK", t
+        if self.pb_cover is None:
+            self.pb_state = None
+            return
+        if self.pb_state is None:
+            self.pb_state, self.pb_t = "PEEK", t
+        ws = [w for w in me["weapons"] if w]
+        gun = next((w for w in ws if w["kind"] == "gun"), None)
+        dry = gun is not None and (gun.get("ammo", 0) == 0 or gun.get("reload", 0) > 0)
+        laser = next((w for w in ws if w["kind"] == "laser"), None)
+        laser_fired = laser is not None and laser.get("cooldown", 0) > 0.5
+        if self.pb_state == "PEEK" and dist2(pos, self.pb_peek) < 1.5:
+            if t - self.pb_t > cfg.pb_burst_s or dry or laser_fired:
+                self.pb_state, self.pb_t = "DUCK", t
+        elif self.pb_state == "PEEK" and t - self.pb_t > cfg.pb_burst_s + 2.0:
+            self.pb_state, self.pb_t = "DUCK", t        # could not reach the peek spot: duck and retry
+        elif self.pb_state == "DUCK" and dist2(pos, self.pb_cover) < 1.5 and t - self.pb_t > cfg.pb_duck_s \
+                and not (gun is not None and gun.get("reload", 0) > 0 and laser is None):
+            self.pb_state, self.pb_t = "PEEK", t
+        if self.pb_state == "PEEK":
+            plan.mode, plan.goal = "PEEK", self.pb_peek
+            plan.rationale = f"PEEK burst at {tgt['id']} {d:.0f}m"
+        else:
+            plan.mode, plan.goal = "DUCK", self.pb_cover
+            plan.rationale = f"DUCK from {tgt['id']} {d:.0f}m"
+        plan.boost = False
+        plan.retreat = False
+
+    def _find_corner(self, me, eye, tc):
+        """Nearest (cover, peek) pair within pb_radius: cover hidden from the target at centre and head, peek a few
+        metres away with our muzzle seeing it, both walkable and joined by a straight walkable line."""
+        cfg, wm, pos = self.cfg, self.wm, me["pos"]
+        mh = me["stats"].get("muzzle_height", 7.0)
+        away = yaw_to(eye, pos)
+        deadline = time.perf_counter() + cfg.pb_search_ms / 1000.0
+        for r in (0.0, 3.0, 5.0, 7.5, cfg.pb_radius):
+            if time.perf_counter() > deadline:
+                break                                # out of time this decision: fight in the open
+            for k in range(1 if r == 0 else 12):
+                if time.perf_counter() > deadline:
+                    break
+                a = away + (k - 6) * math.pi / 6
+                cx, cy = pos[0] + math.cos(a) * r, pos[1] + math.sin(a) * r
+                if not wm.free(cx, cy) or (r > 0 and not wm.line_walkable((pos[0], pos[1]), (cx, cy))):
+                    continue
+                # hidden with a margin: stopping up to 1 m off the spot must still be out of sight
+                if any(wm.los(eye, [cx + ox, cy + oy, wm.ground(cx + ox, cy + oy) + h])
+                       for ox, oy in ((0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)) for h in (4.5, 9.0)):
+                    continue
+                toward = yaw_to((cx, cy), tc)
+                for pr in (2.5, 4.0, 5.5):
+                    for j in range(7):
+                        b = toward + ((j + 1) // 2) * (1 if j % 2 else -1) * math.pi / 4
+                        px, py = cx + math.cos(b) * pr, cy + math.sin(b) * pr
+                        if not wm.free(px, py) or not wm.line_walkable((cx, cy), (px, py)):
+                            continue
+                        if wm.los([px, py, wm.ground(px, py) + mh], tc):
+                            return (cx, cy), (px, py)
+        return None, None
+
     # ================================================================== movement
     def _move(self, obs, plan: Plan) -> Tuple[Tuple[float, float], bool, bool]:
         cfg, me, t = self.cfg, obs["self"], obs["t"]
@@ -334,7 +426,7 @@ class MechBot:
                         mx, my = math.cos(a), math.sin(a)
                         break
 
-        climbing = self.hold is not None and self.hold.climbing and plan.mode not in ("COVER", "ROTATE")
+        climbing = self.hold is not None and self.hold.climbing and plan.mode not in ("COVER", "ROTATE", "PEEK", "DUCK")
         if climbing:
             cx, cy, cb, cj = self._climb(obs, mx, my, boost, jump)
             return (cx, cy), cb, cj
@@ -372,6 +464,8 @@ class MechBot:
         threat = self._threat(obs, plan)
         if threat is None:
             return mx, my, boost, jump
+        if plan.mode in ("PEEK", "DUCK"):
+            return mx, my, boost, jump              # corner fighting: deliberate steps, no strafing on top
         if plan.mode == "COVER" and plan.goal is not None and dist2(pos, plan.goal) < 3.0 and self.wm is not None:
             eye = [threat["pos"][0], threat["pos"][1], threat["pos"][2] + self.mech_rules.get("eye_height", 8.0)]
             if not self.wm.los(eye, [pos[0], pos[1], pos[2] + 8.5]):
@@ -381,6 +475,13 @@ class MechBot:
         d = dist2(pos, threat["pos"])
         if t >= self.strafe_until:
             self.strafe_sign = -self.strafe_sign
+            # flank: lean the legs toward the threat's back (hits outside its 180 degree front arc deal x1.5).
+            # rel = our angle around the threat measured from its aim; with side = by + sign*pi/2 and
+            # by = yaw(us -> threat), sign -1 walks us counter-clockwise around it (rel grows), +1 clockwise.
+            # Only with probability flank_bias, so the legs stay unpredictable.
+            if threat.get("kind") == "mech" and "aim" in threat and self.rng.random() < cfg.flank_bias:
+                rel = wrap(yaw_to(threat["pos"], pos) - threat["aim"][0])
+                self.strafe_sign = -1.0 if rel >= 0 else 1.0
             self.strafe_until = t + self.rng.uniform(cfg.strafe_leg_min_s, cfg.strafe_leg_max_s)
         side = by + self.strafe_sign * math.pi / 2
         zr = self._roof_z(me, plan.goal) if self.wm is not None else None
@@ -440,7 +541,8 @@ class MechBot:
         cfg, me, t = self.cfg, obs["self"], obs["t"]
         pos = me["pos"]
         d = dist2(pos, goal)
-        if d < 2.0:
+        arrive = 0.7 if self.last_plan is not None and self.last_plan.mode in ("PEEK", "DUCK") else 2.0
+        if d < arrive:
             return 0.0, 0.0
         wm = self.wm
         if wm is None or self._elevated(me) or wm.line_walkable((pos[0], pos[1]), goal):
@@ -486,6 +588,8 @@ class MechBot:
         if tgt is None:
             if plan.face_bearing is not None:
                 yaw = plan.face_bearing
+            elif cfg.fast_scan:
+                yaw = self._scan_yaw(pos, cur_yaw)
             elif math.hypot(*move) > 0.1:
                 yaw = math.atan2(move[1], move[0]) + cfg.scan_amp * math.sin(t * cfg.scan_rate)
             else:
@@ -568,9 +672,24 @@ class MechBot:
             elif k == "mortar":
                 own_splash = d < s.get("splash_radius", 7) * 2.5
                 fire[i] = aim_mode == "mortar" and yaw_err < 0.03 and pitch_err < 0.03 and not own_splash
-        return (yaw, pitch), fire, False
+        gun = ws[0] if ws and ws[0] and ws[0]["kind"] == "gun" else None
+        reload_ = bool(plan.mode == "DUCK" and gun and gun.get("reload", 0) == 0
+                       and gun.get("ammo", 12) < gun["stats"].get("mag", 12) * 0.5)   # reload while ducked
+        return (yaw, pitch), fire, reload_
 
     # ================================================================== offers + pickups
+    def _scan_yaw(self, pos, cur_yaw: float) -> float:
+        """Keep the torso turning all the way round, moving or not (seen on the cast: top bots constantly check
+        for threats). The 120 degree view cone sweeps a full turn in about 1.6 s at turn_rate 4 rad/s. On the
+        ground, hurry past directions where a wall stands within scan_wall_m: nothing can come from there."""
+        step = 0.9
+        if self.wm is not None and not self.wm.elevated(pos[0], pos[1], pos[2]):
+            a = cur_yaw + 0.6
+            d = self.cfg.scan_wall_m
+            if not self.wm.free(pos[0] + math.cos(a) * d, pos[1] + math.sin(a) * d):
+                step = 1.8
+        return cur_yaw + step
+
     def _offer(self, obs, act) -> None:
         off = obs.get("offer")
         if not off:
