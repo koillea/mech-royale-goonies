@@ -89,6 +89,16 @@ class BotConfig:
     # --- NPC drones aggro at 45 m with line of sight (section 7 NPC drones)
     npc_avoid: float = 55.0
 
+    # --- B2 drone kiting: lead a chasing hunter past a drone (they shoot any mech within 45 m of them)
+    drone_kite: bool = True
+    kite_min_range: float = 30.0         # closer than this, just fight
+    kite_max_run: float = 150.0          # lure points at most this far from us
+    kite_pass_min: float = 48.0          # our route passes a drone no closer than this (aggro 45 m) ...
+    kite_pass_max: float = 65.0          # ... and no farther, so the chaser behind us cuts into its range
+    kite_hunter_in: float = 40.0         # the hunter's straight line to our destination passes this close
+    kite_drone_memory_s: float = 90.0    # drones stay within 30 m of home: remember where we saw them
+    kite_boost_energy: float = 30.0
+
     # --- upgrades: survival first (armor reduces weapon damage, plating raises max HP, nanites speed regen)
     # E7: plating first: +15 % max HP (and it heals the difference) is more effective HP than armor's -8 %
     # damage taken (1.15 vs 1/0.92 = 1.087); top bots seen on the cast stack plating (sonion 3x, 2.3% first).
