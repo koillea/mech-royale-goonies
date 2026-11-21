@@ -14,7 +14,7 @@ import sys
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
-from .ballistics import aim_at, lead, mortar_pitch, mortar_time, wrap, yaw_to
+from .ballistics import Tracker, aim_at, intercept, lead, mortar_pitch, mortar_time, wrap, yaw_to
 from .config import BotConfig
 from .plan import HeuristicPlanner, Hold, Plan, dist2
 from .position import PositionPlanner, Spot
@@ -115,6 +115,7 @@ class MechBot:
         self.strafe_until = 0.0
         self.hop_t = 0.0
         self.last_plan: Optional[Plan] = None
+        self.tracker = Tracker()
         self.cover: Optional[Tuple[float, float]] = None
         self.cover_t = -1e9
         self.cover_from: Optional[int] = None
@@ -469,6 +470,8 @@ class MechBot:
         st = me["stats"]
         muzzle = [pos[0], pos[1], pos[2] + st.get("muzzle_height", 7.0)]
         cur_yaw, cur_pitch = me["aim"]
+        if cfg.smart_lead:
+            self.tracker.update(t, pos, obs["mechs"])
         tgt = plan.target
         if tgt is None:
             if plan.face_bearing is not None:
@@ -512,7 +515,12 @@ class MechBot:
         elif mortar_i is not None and ws[mortar_i]["cooldown"] <= 0.05 and 30 < d < 220 and plan.target_kind != "crate":
             aim_mode = "mortar"
 
-        if aim_mode == "laser":
+        lead_pt = None
+        if cfg.smart_lead and plan.target_kind == "mech" and aim_mode in ("laser", "gun"):
+            lead_pt = self._smart_lead(obs, muzzle, tgt, tc, tv, aim_mode, ws)
+        if lead_pt is not None:
+            yaw, pitch = aim_at(muzzle, lead_pt)
+        elif aim_mode == "laser":
             pt = [tc[0] + tv[0] * 0.1, tc[1] + tv[1] * 0.1, tc[2]]
             yaw, pitch = aim_at(muzzle, pt)
         elif aim_mode == "mortar":
@@ -527,7 +535,7 @@ class MechBot:
                 d2 = dist2(muzzle, pt)
                 p1 = mortar_pitch(d2, pt[2] - muzzle[2], sp, g) or p0
                 yaw, pitch = yaw_to(muzzle, pt), p1
-        if aim_mode == "gun":
+        if aim_mode == "gun" and lead_pt is None:
             sp = ws[0]["stats"].get("speed", 252) if ws and ws[0] and ws[0]["kind"] == "gun" else 252
             pt = lead(muzzle, tc, tv, sp)
             yaw, pitch = aim_at(muzzle, pt)
@@ -556,6 +564,43 @@ class MechBot:
                 own_splash = d < s.get("splash_radius", 7) * 2.5
                 fire[i] = aim_mode == "mortar" and yaw_err < 0.03 and pitch_err < 0.03 and not own_splash
         return (yaw, pitch), fire, False
+
+    def _smart_lead(self, obs, muzzle, tgt, tc, tv, aim_mode, ws) -> Optional[List[float]]:
+        """O1 target leading: where the target's centre will be when the shot lands. Uses its velocity and
+        recent acceleration, gravity while it is airborne, our decision delay (an action applies over the next
+        0.1 s), and its strafe rhythm (a reversal that is due shrinks the sideways lead)."""
+        cfg, me, t = self.cfg, obs["self"], obs["t"]
+        mr = self.mech_rules
+        delay = cfg.lead_delay_s
+        # our own muzzle moves during the delay
+        mv = me.get("vel", [0, 0, 0])
+        src = [muzzle[0] + mv[0] * delay, muzzle[1] + mv[1] * delay, muzzle[2]]
+        acc = self.tracker.acc.get(tgt["id"], [0.0, 0.0])
+        half = tc[2] - tgt["pos"][2]
+        g, floor = 0.0, None
+        if abs(tv[2]) > 0.3 and self.wm is not None:          # airborne: it falls
+            g = mr.get("gravity", 22.0)
+            x, y, z = tgt["pos"]
+            k = self.wm.idx(x, y)
+            rf = self.wm.roof[k]
+            gk = self.wm.gnd[k]
+            floor = (rf if gk < rf <= z + 0.5 else gk) + half
+        vmax = mr.get("boost_speed", 19.5)
+        speed = None
+        if aim_mode == "gun":
+            gun = ws[0] if ws and ws[0] and ws[0]["kind"] == "gun" else None
+            speed = gun["stats"].get("speed", 252) if gun else 252.0
+        p = intercept(src, tc, tv, acc, speed, delay, vmax, g, floor)
+        due = self.tracker.reversal_due(tgt["id"], t)
+        if due > 0:
+            # shrink only the sideways part of the lead (relative to us)
+            dx, dy = tc[0] - src[0], tc[1] - src[1]
+            d = math.hypot(dx, dy) or 1.0
+            ux, uy = -dy / d, dx / d
+            lat = (p[0] - tc[0]) * ux + (p[1] - tc[1]) * uy
+            f = cfg.reversal_shrink * due
+            p = [p[0] - ux * lat * f, p[1] - uy * lat * f, p[2]]
+        return p
 
     # ================================================================== offers + pickups
     def _offer(self, obs, act) -> None:

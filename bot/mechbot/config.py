@@ -41,6 +41,11 @@ class BotConfig:
     weapon_pref: List[str] = field(default_factory=lambda: ["laser", "lightning", "mortar"])
     drop_radius: float = 70.0            # contest a supply drop only if it lands this close
 
+    # --- O1 aim: lead with acceleration, gravity, decision delay and strafe rhythm (ballistics.Tracker)
+    smart_lead: bool = True
+    lead_delay_s: float = 0.05           # an action applies over the next 0.1 s: shots leave ~half-way on average
+    reversal_shrink: float = 0.5         # a strafe reversal that is due shrinks the sideways lead by up to half
+
     # --- position (position.py). Height first: roofs see further, shoot down, sit out of drone reach.
     use_perches: bool = True
     perch_min_height: float = 6.0        # lower roofs give little advantage
