@@ -119,7 +119,7 @@ class PositionPlanner:
 
     def choose(self, obs: Dict[str, Any], current: Optional[Spot], bad: Dict[int, float],
                heard: Optional[List[Tuple[float, float, float]]] = None) -> Spot:
-        """`heard`: (x, y, confidence) of enemies intel places nearby without seeing them."""
+        """`heard`: (x, y, confidence) of enemies intel places nearby without seeing them right now."""
         heard = heard or []
         cfg, wm, me, t, z = self.cfg, self.wm, obs["self"], obs["t"], obs["zone"]
         pos = me["pos"]
@@ -141,7 +141,7 @@ class PositionPlanner:
                 "travel": -cfg.w_travel * travel / avail,
                 "crowd": -cfg.w_crowd * sum(1 for m in mechs if math.hypot(m["pos"][0] - x, m["pos"][1] - y) < 80),
                 "npc": -cfg.w_npc * sum(1 for n in npcs if math.hypot(n["pos"][0] - x, n["pos"][1] - y) < 55),
-                "heard": -getattr(cfg, "w_intel", 0.0) * sum(c for hx, hy, c in heard if math.hypot(hx - x, hy - y) < 80),
+                "heard": -cfg.w_intel * sum(c for hx, hy, c in heard if math.hypot(hx - x, hy - y) < cfg.avoid_near),
             }
             if current is not None and math.hypot(current.x - x, current.y - y) < 4.0:
                 parts["stay"] = cfg.w_stay

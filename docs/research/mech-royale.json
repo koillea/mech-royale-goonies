@@ -134,12 +134,17 @@
       "score": 2.58,
       "wait_ms": 46,
       "note": "bundled cover-first combat + 130 m laser detour + speed fix, against the one-change rule; cannot attribute the drop. wait fell 143 -> 46 ms, consistent with the speed fix working"
+    },
+    {
+      "version": "A+B+C merge",
+      "commit": "bf61a15",
+      "submitted": "Fri 10:00 PM ET",
+      "score": 2.9,
+      "wait_ms": 109,
+      "note": "merged PR #1 (speed fix + aim + intel/cover-when-shot). Below v3: both cover-and-peek versions (v4, this) scored lower"
     }
   ],
   "plan": [
-    "A (main): v3 + speed fix only. Isolates whether late decisions cost points.",
-    "B (branch aim): A + aim refinements (motion prediction, pre-aim, rear-arc preference).",
-    "C (branch intel): B + threat tracking from sounds/beams/bullets/damage used for cover and firing angles.",
-    "Each is submitted alone; keep a change only if it beats the best score so far."
+    "v5 (main): v3 + speed fix + fire discipline + intel avoidance + close laser grab. Each is a config flag (threat_radius_mech, intel_avoid, laser_grab) so a regression can be bisected one flag per submission."
   ]
 }

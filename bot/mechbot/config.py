@@ -15,12 +15,14 @@ class BotConfig:
 
     # --- scoring: 16 - place, survival beats kills (section 4). House bots hunt the weakest entrant first,
     # so keeping HP high (regen needs 5 s without dealing or taking damage, section 7 Health) is the core plan.
-    # Fight only when we must: a mech that hit us, a mech inside threat_radius_mech, or a drone inside its own
-    # aggro range (npc.aggro_range, 45 m, section 7 NPC drones) or one that hit us. Everything else is watched.
-    threat_radius_mech: float = 90.0
-    endgame_alive: int = 3               # with this few mechs left, widen the mech radius by endgame_mult
-    endgame_mult: float = 1.5
+    # Shoot only when necessary (board: the more aggressive versions scored lower). Necessary = a mech that hit us
+    # in the last provoked_s, a mech already inside threat_radius_mech, a drone inside its own aggro range
+    # (npc.aggro_range, 45 m: it shoots anyway) or that hit us. Everything else is avoided (intel_avoid below).
+    threat_radius_mech: float = 40.0
+    endgame_alive: int = 3               # with this few mechs left, the radius widens to endgame_radius
+    endgame_radius: float = 90.0
     provoked_s: float = 4.0              # an attacker stays "hostile" this long after its last hit on us
+    shoot_crates: bool = False           # gunfire carries 320 m and crates 220 m (section 8): loud for one cube
     retreat_hp_frac: float = 0.35        # below this, back away from the fight while still facing it (rear x1.5)
 
     # --- zone (section 9). Hold near the edge of the next circle on our side: shortest moves, fewest fights.
@@ -59,6 +61,24 @@ class BotConfig:
     w_npc: float = 0.6
     w_stay: float = 0.25
 
+    # --- close laser grab: worth a short trip even from our spot, then straight back
+    laser_grab: bool = True
+    laser_grab_radius: float = 40.0
+    laser_grab_clear: float = 80.0       # skip it if a seen mech is this close to it (60 % of this for heard ones)
+
+    # --- intel avoidance (intel.py): footsteps, gunfire, jets, reloads, beams, bullets, damage -> estimates.
+    # When enemies are heard or seen near us or near our spot, re-pick the spot away from them; the ring
+    # (spot inside the next circle, reachable before the shrink ends) always constrains the choice.
+    intel_avoid: bool = True
+    intel_half_life_s: float = 3.0       # an estimate's confidence halves every 3 s without fresh info
+    intel_merge_m: float = 30.0          # a seen mech this close to an anonymous estimate accounts for it
+    unseen_dist: float = 100.0           # shot by an unseen gun with no matching sound: assume this distance
+    avoid_radius: float = 90.0           # enemies (seen or heard) this close to us or our spot trigger a re-pick
+    avoid_conf: float = 0.35             # heard estimates count from this confidence
+    avoid_respot_s: float = 3.0          # re-pick at most this often while avoiding
+    w_intel: float = 1.0                 # spot penalty per enemy (x confidence) within avoid_near of a spot
+    avoid_near: float = 80.0
+
     # --- NPC drones aggro at 45 m with line of sight (section 7 NPC drones)
     npc_avoid: float = 55.0
 
@@ -92,40 +112,6 @@ class BotConfig:
     range_gun: tuple = (35.0, 130.0)
     range_laser: tuple = (60.0, 200.0)
     range_lightning: tuple = (12.0, 38.0)
-
-    # --- aim (aim.py). Shots leave along the actual torso aim (section 7 Weapons); an action applies for the next
-    # 2 ticks = 0.1 s (section 2), so the lead starts from half of that on average.
-    aim_latency_s: float = 0.05
-    track_window_s: float = 2.0          # history kept per target for prediction
-    reversals_for_mean: int = 2          # this many strafe reversals in the window: aim at the jitter's centre
-    preaim_hostile_s: float = 6.0        # keep pre-aiming at a mech that hit us this long after it hid
-    preaim_hidden_s: float = 2.0         # extrapolate a hidden mech at most this far
-    # "critical hits": the only damage multiplier on positioning is rear armour, x1.5 outside the target's
-    # 180 degree front arc (section 7 Rear armor); laser cook-off (+60 % on a mortar carrier) is automatic.
-    rear_target_bonus: float = 60.0      # target choice: a mech facing away counts as 60 m closer
-    flank_bias: float = 0.7              # chance each strafe leg is chosen to walk around toward the target's back
-
-    # --- intel (intel.py): enemy estimates from sight, beams, damage, incoming bullets and sounds
-    intel_half_life_s: float = 3.0       # an estimate's confidence halves every 3 s without fresh info
-    intel_merge_m: float = 30.0          # a seen mech this close to an anonymous estimate accounts for it
-    unseen_dist: float = 100.0           # shot by an unseen gun with no matching sound: assume this distance
-    preaim_intel_conf: float = 0.4       # face a heard-only threat once intel is this sure of it
-    w_intel: float = 0.6                 # spot choice: penalty per intel threat near a spot (times confidence)
-
-    # --- cover when shot, fire back from the best angle (model._combat)
-    intel_cover: bool = True
-    shot_window_s: float = 1.0           # "being shot" = a mech damaged us this recently
-    cover_cycle_s: float = 6.0           # the hide / peek cycle continues this long after the last hit
-    brawl_range: float = 25.0            # closer than this, fight (turning to run gives free rear hits, x1.5)
-    flanked_fight_range: float = 70.0    # a shooter that walks round our cover and sees us inside this: fight back
-    max_relocations: int = 3             # found again this many times within cover_cycle_s: stand and fight
-    cover_other_penalty: float = 25.0    # cover cost per other threat (x its confidence) that can see the spot
-    peek_bonus: float = 12.0             # cover with a firing spot toward the shooter beats one without
-    peek_rear_bonus: float = 8.0         # ...more if that spot sees the shooter's back (rear armour x1.5)
-    peek_height_bonus: float = 0.6       # ...per metre of height over the shooter (up to 10 m)
-    min_cover_s: float = 0.8             # stay hidden at least this long before peeking
-    peek_max_s: float = 2.2              # longest peek (a full laser charge is 0.75 s)
-    peek_min_hp: float = 0.3             # below this HP fraction, stay hidden and regenerate
 
     # --- sensing: sweep the 120 degree view cone so nobody reaches our back unseen (section 8 Vision)
     scan_amp: float = 1.4

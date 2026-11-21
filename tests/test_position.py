@@ -91,7 +91,7 @@ def test_waits_for_energy_then_jets_up(hello, observations):
     assert a["boost"] and math.hypot(*a["move"]) > 0.9
 
 
-def test_moves_but_stays_on_roof_under_fire(hello, observations):
+def test_strafes_but_stays_on_roof_under_fire(hello, observations):
     bot = MechBot(hello)
     o = calm(observations)
     bot.act(o)
@@ -104,7 +104,7 @@ def test_moves_but_stays_on_roof_under_fire(hello, observations):
         o["tick"], o["t"] = o["tick"] + 2, o["t"] + 0.1
         o["events"] = [{"type": "damaged", "amount": 45, "weapon": "gun", "bearing": 0.0, "by": 9}]
         a = bot.act(o)
-        assert bot.last_plan.mode in ("FIGHT", "COVER", "COVERED", "PEEK")
+        assert bot.last_plan.mode in ("FIGHT", "COVER")
         p = o["self"]["pos"]
         nxt = [p[0] + a["move"][0] * 1.2, p[1] + a["move"][1] * 1.2]
         assert bot.wm.walk_ok(nxt[0], nxt[1], sp.z), "strafe would walk off the roof"
@@ -114,7 +114,8 @@ def test_moves_but_stays_on_roof_under_fire(hello, observations):
 
 @pytest.mark.parametrize("kind,dist,hostile,fights", [
     ("mech", 150, False, False),     # far and not shooting at us: watch, do not shoot
-    ("mech", 60, False, True),       # inside the threat radius
+    ("mech", 60, False, False),      # not shooting at us and not close: avoid it, do not shoot
+    ("mech", 30, False, True),       # inside the 40 m threat radius
     ("mech", 150, True, True),       # it shot us
     ("npc", 40, False, True),        # a drone inside its aggro range will shoot anyway
     ("npc", 80, False, False),
