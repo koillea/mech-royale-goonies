@@ -20,6 +20,11 @@ LEVELS = {
     "hard":   (1.3, 0.4, True, 70.0, 300.0),
     "expert": (0.7, 0.25, True, 80.0, 340.0),
 }
+import os
+HUNT_ALL = True                                          # house bots converge on a known entrant...
+HUNT_RADIUS = float(os.environ.get("SIM_HUNT_RADIUS", "250"))   # ...if it is within this distance of them
+HUNT_MEMORY = 5.0                                        # seconds an entrant sighting stays shared
+INFIGHT_RANGE = float(os.environ.get("SIM_INFIGHT", "100"))     # house bots fight each other only this close
 FIELD = ["easy"] * 4 + ["medium"] * 4 + ["hard"] * 4 + ["expert"] * 3
 
 
@@ -57,15 +62,19 @@ class HouseBot:
         if obs.get("offer"):
             act["pick"] = 0
         vis = self._shared_visible()
-        entrants = [o for o in vis if not o.house and math.dist(o.pos[:2], pos[:2]) < self.hunt]
-        if entrants:
-            tgt = min(entrants, key=lambda o: o.hp)
-        elif vis:
-            tgt = min(vis, key=lambda o: math.dist(o.pos[:2], pos[:2]))
-            if math.dist(tgt.pos[:2], pos[:2]) > 200:
-                tgt = None
+        # entrants any house bot has seen in the last memory_s: shared, hunted from anywhere (weakest first)
+        known = [o for o in m.mechs if o.alive and not o.house and math.dist(o.pos[:2], pos[:2]) < HUNT_RADIUS and
+                 any(h.alive and h.house and h.seen.get(o.id, -1e9) >= m.t - HUNT_MEMORY for h in m.mechs)]
+        if known and HUNT_ALL:
+            tgt = min(known, key=lambda o: o.hp)
         else:
-            tgt = None
+            entrants = [o for o in vis if not o.house and math.dist(o.pos[:2], pos[:2]) < self.hunt]
+            if entrants:
+                tgt = min(entrants, key=lambda o: o.hp)
+            else:
+                # other house bots only when they are right there
+                near = [o for o in vis if math.dist(o.pos[:2], pos[:2]) < INFIGHT_RANGE]
+                tgt = min(near, key=lambda o: math.dist(o.pos[:2], pos[:2])) if near else None
         if tgt is None or tgt.id != self.target_id:
             self.target_id = tgt.id if tgt is not None else None
             self.target_t = t
