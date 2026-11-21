@@ -120,7 +120,7 @@ def _rel(me, tpos, aim_yaw):
 
 @pytest.mark.parametrize("offset", [0.3, -0.3])
 def test_strafe_legs_walk_around_to_the_back(hello, observations, offset):
-    bot = MechBot(hello, BotConfig(flank_bias=1.0))
+    bot = MechBot(hello, BotConfig(flank_bias=1.0, intel_cover=False))
     o = calm(observations)
     me = o["self"]["pos"]
     o["zone"]["next_center"] = me[:2]
