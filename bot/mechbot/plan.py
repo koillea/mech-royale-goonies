@@ -5,8 +5,10 @@ string, drawn above the mech as a debug label, so every decision can be audited 
 
 Rule order (first match wins):
   1. ROTATE  - outside the zone, or we will be caught by the shrink: run (boost) to safety, shoot back on the way
-  2. FIGHT   - a mech or drone hit us recently, or an enemy is close / weak enough to finish
-  3. ALERT   - hit by something we cannot see: turn to face the bearing, keep moving
+               (unless a mech is shooting us and the zone hurts less than zone_beats_cover_dps)
+  2. FIGHT   - a mech or drone hit us recently, or one is inside its threat radius. Against a mech the model's
+               cover-first layer turns this into COVER / COVERED / PEEK
+  3. ALERT   - hit by something we cannot see: turn to face the bearing (cover-first if it was a mech)
   4. LOOT    - safe and early: a better weapon, a cube, a crate, or a close uncontested supply drop
   5. HOLD    - walk to (or stay at) the hold point inside the next circle, scanning
 """
@@ -125,6 +127,10 @@ class HeuristicPlanner:
         hostile = mem.hostile_ids(t, cfg.provoked_s)
         target, kind, why = self._pick_target(obs, mechs, npcs, hostile)
 
+        # being shot by a mech outranks rotating, unless we stand in a zone that hurts more than a gun does
+        shot = mem.shot_recently(t, cfg.shot_window_s) if hasattr(mem, "shot_recently") else False
+        if urgent and shot and obs["zone"].get("dps", 0) < cfg.zone_beats_cover_dps:
+            urgent = False
         if urgent:
             if goal is None and not busy:
                 goal = self._center(obs)
@@ -199,7 +205,8 @@ class HeuristicPlanner:
         cands: List[Tuple[float, Plan]] = []
         for p in want:
             d = dist2(p["pos"], pos)
-            if d < cfg.loot_radius and safe(p["pos"]):
+            reach = cfg.laser_loot_radius if p["kind"] == "laser" else cfg.loot_radius
+            if d < reach and (safe(p["pos"]) or p["kind"] == "laser"):
                 cands.append((d - 15, Plan("LOOT", goal=(p["pos"][0], p["pos"][1]), take=p,
                                            rationale=f"LOOT {p['kind']} {d:.0f}m")))
         for c in obs["cubes"]:

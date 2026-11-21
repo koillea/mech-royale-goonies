@@ -23,6 +23,18 @@ class BotConfig:
     provoked_s: float = 4.0              # an attacker stays "hostile" this long after its last hit on us
     retreat_hp_frac: float = 0.35        # below this, back away from the fight while still facing it (rear x1.5)
 
+    # --- cover-first combat (model._combat). Against a mech we never trade shots in the open: get out of its
+    # line of sight first (being shot is the top priority), then peek out to shoot and duck back in. Hidden we
+    # reload, the laser cools and HP regenerates (45 HP/s after 5 s without damage, section 7 Health).
+    cover_first: bool = True
+    shot_window_s: float = 1.0           # "being shot at" = a mech damaged us this recently
+    zone_beats_cover_dps: float = 60.0   # outside the zone at this dps or more, the zone outranks cover
+    unseen_dist: float = 100.0           # shot by a mech we cannot see: assume it stands this far along the bearing
+    brawl_range: float = 18.0            # closer than this there is no time to hide: fight in the open
+    min_cover_s: float = 0.8             # stay hidden at least this long before peeking
+    peek_max_s: float = 2.2              # longest peek (a full laser charge is 0.75 s, 12 gun rounds 2.9 s)
+    peek_min_hp: float = 0.3             # below this HP fraction, stay hidden and let it regenerate
+
     # --- zone (section 9). Hold near the edge of the next circle on our side: shortest moves, fewest fights.
     hold_frac_early: float = 0.55        # target radius fraction of the next circle while it is large
     hold_frac_late: float = 0.35         # once next_radius <= late_radius
@@ -32,6 +44,7 @@ class BotConfig:
 
     # --- loot (section 7 Weapon loot, section 10 Cubes)
     loot_radius: float = 55.0            # detour for a weapon or cube no further than this
+    laser_loot_radius: float = 130.0     # ...but go much further for a laser: 315 hitscan damage at 280 m, no lead
     loot_until_t: float = 260.0          # stop looting once the circles are small and fights are constant
     crate_radius: float = 45.0
     crate_min_hp_frac: float = 0.7
@@ -48,7 +61,7 @@ class BotConfig:
     bad_perch_s: float = 60.0
     respot_s: float = 8.0                # re-score spots this often (hysteresis keeps us put unless clearly better)
     ground_stride: int = 4               # sample ground spots at least every 4 cells (12 m)...
-    ground_samples: int = 1200           # ...and widen the stride so a big circle stays under this many
+    ground_samples: int = 700            # ...and widen the stride so a big circle stays under this many
     height_cap: float = 30.0
     w_height: float = 1.2
     w_room: float = 0.3
@@ -73,8 +86,10 @@ class BotConfig:
     stuck_s: float = 0.6
     waypoint_lookahead: int = 4          # cells ahead on the A* path to steer at
     replan_s: float = 2.5
-    path_budget: int = 2500              # A* node expansions per 10 ms of time left in the decision
-    decide_ms: float = 22.0              # aim to finish every decision by this (budget is 50 ms on 1 CPU)
+    path_budget: int = 2500              # cap on A* node expansions per decision...
+    path_ms: float = 2.5                 # ...and on its wall time: the search resumes next decision
+    decide_ms: float = 8.0               # aim to finish every decision by this (budget is 50 ms on 1 CPU; the
+                                         # match container can be several times slower than a laptop)
     # --- evasion: never stand still under fire. A gun bullet takes ~0.4 s to cross 100 m (252 m/s), and the
     # enemy leads on our current velocity, so legs of random length (reversals it cannot time) at boost speed
     # (19.5 vs 11.7 m/s, section 7 Movement) make its lead wrong. Boost drains 17/s and energy regenerates

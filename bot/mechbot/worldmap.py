@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import heapq
 import json
+import time
 import math
 import os
 from array import array
@@ -204,15 +205,22 @@ class PathSearch:
         dx, dy = abs(i - self.gx), abs(j - self.gy)
         return (dx + dy) + (SQRT2 - 2) * min(dx, dy)
 
-    def step(self, budget: int) -> bool:
+    def step(self, budget: int, deadline: Optional[float] = None) -> bool:
+        """Expand up to `budget` nodes, stopping early at `deadline` (time.perf_counter value)."""
         if self.done:
             return True
+        check = 0
         wm, nx, blk = self.wm, self.wm.nx, self.wm.blocked
         g, came, op = self.g, self.came, self.open
         nbrs = ((1, 0, 1.0), (-1, 0, 1.0), (0, 1, 1.0), (0, -1, 1.0),
                 (1, 1, SQRT2), (1, -1, SQRT2), (-1, 1, SQRT2), (-1, -1, SQRT2))
         while op and budget > 0:
             budget -= 1
+            check += 1
+            if deadline is not None and check >= 128:
+                check = 0
+                if time.perf_counter() > deadline:
+                    return False
             f, k = heapq.heappop(op)
             if k == self.goal:
                 self._finish(k)

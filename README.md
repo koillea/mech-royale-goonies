@@ -75,11 +75,32 @@ On a roof every move, strafe and cover search is checked against the roof's own 
 | Mode | When | What it does |
 |---|---|---|
 | `ROTATE` | outside the current (interpolated) circle, or the shrink would catch us with < 8 s slack | boost toward the spot, still shooting back |
-| `FIGHT` | a mech hit us in the last 4 s, a mech is within 90 m (135 m with 3 or fewer mechs left), or a drone is within its 45 m aggro range or hit us | face it, shoot, strafe (see Evasion); on a roof it fights from the roof |
-| `COVER` | in a FIGHT where the enemy has a laser and we don't (beyond 60 m), or we are losing on HP | nearest point within 36 m the attacker cannot see; on a roof, a point back from the edge |
+| `FIGHT` | a mech hit us in the last 4 s, a mech is within 90 m (135 m with 3 or fewer mechs left), or a drone is within its 45 m aggro range or hit us | against a mech: cover-first (below); against a drone, or a mech within 18 m, or with no cover in reach: face it, shoot, strafe (see Evasion) |
+| `COVER` / `COVERED` / `PEEK` | any fight with a mech, and any time a mech is shooting us (this outranks the zone unless the zone does 60+ HP/s) | see Cover-first combat |
 | `ALERT` | hit by something we cannot see | turn to the damage bearing, keep moving |
 | `LOOT` | on the ground travelling, before 260 s, no enemy within 120 m, not pulling us away from the spot | better weapon (laser > lightning > mortar), cube, uncontested close supply drop, crate (HP >= 70 %) |
 | `HOLD` / `CLIMB` / `PERCH` | otherwise | walk to the spot / climb onto it / stand on it silently, sweeping the 120 degree view cone and facing any visible mech without shooting it |
+
+## Cover-first combat (`model._combat`)
+
+Against a mech the bot never trades shots in the open:
+
+- `COVER`: exposed to the threat (its eye can see our head) or just shot: boost to the nearest walkable point
+  within 40 m, inside the zone, that the threat cannot see at either our centre or our head, firing on the way
+  if the shot is clear. Shot by a mech it cannot see, it assumes the shooter is 100 m out along the damage bearing.
+- `COVERED`: hidden. Reload, let the laser cool, regenerate (45 HP/s after 5 s), face the threat so a flank lands
+  on our front armour. Below 30 % HP it stays hidden.
+- `PEEK`: after at least 0.8 s hidden, with half a magazine or a cool laser, step to the nearest point within
+  11 m of the cover that sees the target, shoot (a full 0.75 s laser charge fits), and go back the moment we are hit,
+  run dry, the laser has fired, or 2.2 s pass.
+
+On a roof, cover is a point back from the edge. Up close (under 18 m) or with no cover in reach it fights in the
+open with the strafing below.
+
+## Weapons
+
+Laser first (315 hitscan damage at 280 m, no lead), then lightning, then mortar; the gun is kept. A visible
+laser is worth a detour of up to 130 m (55 m for anything else).
 
 ## Evasion (`_evade`)
 
