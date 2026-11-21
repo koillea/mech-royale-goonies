@@ -21,6 +21,9 @@ class BotConfig:
     endgame_alive: int = 3               # with this few mechs left, widen the mech radius by endgame_mult
     endgame_mult: float = 1.5
     provoked_s: float = 4.0              # an attacker stays "hostile" this long after its last hit on us
+    heal_first: bool = True              # E9: below heal_below and not being hit, start no new fights ...
+    heal_below: float = 0.70
+    heal_until: float = 0.95             # ... until back above this (top bots on the cast heal to full)
     retreat_hp_frac: float = 0.35        # below this, back away from the fight while still facing it (rear x1.5)
 
     # --- zone (section 9). Hold near the edge of the next circle on our side: shortest moves, fewest fights.

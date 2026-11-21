@@ -64,6 +64,7 @@ class HeuristicPlanner:
         self.cfg = cfg
         self.rules = rules
         self.weapon_rank = {k: i for i, k in enumerate(cfg.weapon_pref)}
+        self.healing = False      # E9
 
     # ------------------------------------------------------------------ zone
     def zone_goal(self, obs: Dict[str, Any], speed: float) -> Tuple[Optional[Vec2], bool, str]:
@@ -123,7 +124,24 @@ class HeuristicPlanner:
         mechs = [m for m in obs["mechs"] if m["kind"] == "mech"]
         npcs = [m for m in obs["mechs"] if m["kind"] == "npc"]
         hostile = mem.hostile_ids(t, cfg.provoked_s)
-        target, kind, why = self._pick_target(obs, mechs, npcs, hostile)
+        # E9: heal before the next fight. What heals us is regen: 45 HP/s after 5 s without dealing or taking
+        # damage (nanites: +60 %, 1.5 s sooner); supply drops repair fully; cubes and plating add max HP.
+        # Below heal_below with nothing hitting us, start no new fights (no proactive targets, no drones that
+        # did not attack, no crates) until back above heal_until; still fire back at whoever hits us.
+        if cfg.heal_first:
+            hit_recently = bool(mem.hostile_ids(t, 5.0))
+            if hp_frac < cfg.heal_below and not hit_recently:
+                self.healing = True
+            elif hp_frac >= cfg.heal_until:
+                self.healing = False
+        if self.healing:
+            mechs_for_fight = [m for m in mechs if m["id"] in hostile]
+            npcs_for_fight = [n for n in npcs if n["id"] in hostile]
+            target, kind, why = self._pick_target(obs, mechs_for_fight, npcs_for_fight, hostile)
+            if target is not None:
+                why += " (healing)"
+        else:
+            target, kind, why = self._pick_target(obs, mechs, npcs, hostile)
 
         if urgent:
             if goal is None and not busy:
@@ -210,7 +228,7 @@ class HeuristicPlanner:
             d = dist2(dr["pos"], pos)
             if d < cfg.drop_radius and dr.get("holder") in (None, me["id"]) and dr["lands_in"] < d / 11.0 + 6:
                 cands.append((d - 30, Plan("LOOT", goal=(dr["pos"][0], dr["pos"][1]), rationale=f"LOOT drop {d:.0f}m")))
-        if hp_frac >= cfg.crate_min_hp_frac:
+        if hp_frac >= cfg.crate_min_hp_frac and not self.healing:
             for c in obs["crates"]:
                 d = dist2(c["pos"], pos)
                 if d < cfg.crate_radius and safe(c["pos"]):
