@@ -9,7 +9,7 @@ import math
 import random
 
 FIGHT_RANGE = 85.0        # M2: 120
-FARM_UNTIL = 1e9          # M3: 90.0
+FARM_UNTIL = 90.0         # M3: no farming after 90 s (was never)
 UPGRADE_PREF = ["armor", "plating", "nanites", "gun_damage", "gun_rate"]
 
 
