@@ -130,6 +130,39 @@ Other numbers: laser picked up in 32 % of matches; 2.5 cubes and 1.2 upgrades pe
 - **Decision:** USE `SIM_AIM_MULT=3.5 SIM_DEFEND_RANGE=60` (closest to both board scores). Known error: example
   overrated by ~0.9. Decide experiments only on paired same-seed differences (> 2 se).
 
+## Fixes to the measurement (Sat Nov 21, after E0)
+
+- The 3.25 (calibration) vs 4.41 (diagnosis) gap came from three differences: seeds (1-80 vs 1-200), seating
+  (shuffled vs always seat 0) and timing (the bot's route search stopped at a wall-clock deadline, so the same
+  seed gave 7, 6, 7 points). Fixed: same seating in both tools, the bot's clock frozen in the simulator, workers
+  pinned to one CPU each. Same seed now gives the same result across tools and runs (12/12).
+- **base** (git `8e48450`): champion + route search limited by a node budget (1000/decision) with the wall clock
+  only as a 15 ms safety net, so the real 1-CPU scorer plans like the simulator. No other change.
+- Champion with the fixes, 200 seeds: **3.38 +- 0.23** (sd 3.19); real 3.69.
+
+## E2 - never break off from a nearly dead target
+
+- **Date / commit:** Sat Nov 21, `e2` (on the champion) and `e2b` = base + E2 (`23980ee`)
+- **Hypothesis:** dying while running for cover was 53-56 % of lost points and 29 of 78 missed kills followed a
+  break-off with the target below 25 %. Never retreating from a target below 35 % HP, and judging "losing" on HP
+  fractions, should turn those into kills: fewer COVER deaths, fewer missed kills, more kills.
+- **Change:** no cover / retreat from a target below 35 % HP; losing = our HP fraction < 0.8 x the target's.
+- **Result (200 paired seeds):** 3.42 vs champion 3.38, **+0.04 +- 0.14 (se): no clear difference.** Deaths in
+  COVER 0.56 -> 0.40 per match, but outnumbered deaths 0.65 -> 0.69 and missed kills 0.39 -> 0.40: the deaths moved
+  into fights against 2+ attackers instead of turning into kills. Kills 2.27 -> 2.38. First-minute deaths 30 %
+  both. Full-to-dead-in-15-s 31 % -> 32 %. Max response (e2b, Docker sandbox): 11.6 ms.
+- **Decision:** not clearly worse, so per the board rule it is submitted as e2b (carries the clock fix). Official
+  score: pending. If below 3.69, revert main to champ-3.69.
+- **Lesson:** the binding problem is being outnumbered, not the cover rule. Next: E3.
+
+## E5 data (first-minute deaths, champion, 200 seeds)
+
+30 % of matches. First damage at a median 11 s, death at 35 s. Two attackers in 36 of 61, three in 9. In the
+open 43 of 61. Killed by house guns 42, lasers 12, lightning 6. First damage from a drone in 13 of 61.
+In those matches FIGHT is the most common decision of the first minute (10 769 vs HOLD 5 232): the bot opens fire
+on any mech within 90 m, which can pull non-hunting squad members into the fight (in the simulator they defend
+themselves when attacked or approached; the real rule is unknown).
+
 ## E1 - drone farming (pending, waits for E0)
 
 - **Commit:** `v37` branch (v3.1 + farming, one change)

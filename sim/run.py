@@ -17,7 +17,17 @@ import os
 import statistics
 import sys
 import time
-from multiprocessing import Pool
+from multiprocessing import Pool, current_process
+
+
+def _pin():
+    """Pin each worker to one core, like the scorer's 1-CPU container (response times are per core)."""
+    try:
+        ident = current_process()._identity
+        cpus = sorted(os.sched_getaffinity(0))
+        os.sched_setaffinity(0, {cpus[(ident[0] - 1) % len(cpus)] if ident else cpus[0]})
+    except (AttributeError, OSError):
+        pass       # macOS has no sched_setaffinity: run unpinned
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "sim"))
@@ -132,7 +142,7 @@ def main():
             jobs.append((s, ents, FIELD[: 16 - len(ents)], vers))
     t0 = time.time()
     rows = []
-    with Pool(a.workers) as pool:
+    with Pool(a.workers, initializer=_pin) as pool:
         for i, (out, dt) in enumerate(pool.imap_unordered(play, jobs)):
             rows += out
             if a.log or (i + 1) % max(1, len(jobs) // 10) == 0:

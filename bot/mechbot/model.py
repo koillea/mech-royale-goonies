@@ -219,8 +219,13 @@ class MechBot:
             return
         me, tgt, t = obs["self"], plan.target, obs["t"]
         d = dist2(me["pos"], tgt["pos"])
+        my_frac = me["hp"] / max(me["max_hp"], 1.0)
+        tgt_frac = tgt.get("hp", 1400) / max(tgt.get("max_hp", 1400), 1.0)
+        if tgt_frac < self.cfg.finish_frac:
+            plan.retreat = False      # E2: never break off from a nearly dead target: finish it
+            return
         laser = "laser" in tgt.get("weapons", []) and not any(w and w["kind"] == "laser" for w in me["weapons"])
-        losing = me["hp"] < tgt.get("hp", 1400) * 0.8
+        losing = my_frac < tgt_frac * 0.8       # E2: compare HP fractions (max HP differs with cubes/plating)
         if not (plan.retreat or (laser and d > 60) or (losing and d > 45)):
             return
         if self.cover_from != tgt["id"] or t - self.cover_t > 1.0:
