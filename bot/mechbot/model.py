@@ -98,7 +98,8 @@ class MechBot:
         self.detour_yaw = 0.0
         self.stuck_hits: List[float] = []
         self.strafe_sign = 1.0
-        self.strafe_t = 0.0
+        self.strafe_until = 0.0
+        self.hop_t = 0.0
         self.last_plan: Optional[Plan] = None
         self.cover: Optional[Tuple[float, float]] = None
         self.cover_t = -1e9
@@ -175,18 +176,7 @@ class MechBot:
             mx, my = self._steer(obs, plan.goal)
 
         tgt = plan.target if plan.target_kind in ("mech", "npc") else None
-        if tgt is not None and plan.mode in ("FIGHT", "ROTATE"):  # COVER runs straight to the spot
-            by = yaw_to(pos, tgt["pos"])
-            if t - self.strafe_t > cfg.strafe_period_s * (0.7 + 0.6 * self.rng.random()):
-                self.strafe_sign, self.strafe_t = -self.strafe_sign, t
-            px, py = math.cos(by + self.strafe_sign * math.pi / 2), math.sin(by + self.strafe_sign * math.pi / 2)
-            if plan.retreat:
-                ax, ay = -math.cos(by), -math.sin(by)
-                mx, my = mx * 0.5 + ax * 0.8 + px * 0.4, my * 0.5 + ay * 0.8 + py * 0.4
-            elif plan.mode == "ROTATE":
-                mx, my = mx + px * 0.3, my + py * 0.3
-            else:
-                mx, my = mx * 0.6 + px * 0.8, my * 0.6 + py * 0.8
+        mx, my, boost, jump = self._evade(obs, plan, mx, my, boost, jump)
 
         # dodge a laser that is charging at us (its aim is visible, section 7 Weapons)
         for m in obs["mechs"]:
@@ -242,6 +232,77 @@ class MechBot:
             elif me["energy"] > 8:
                 boost = True
         return (mx, my), boost, jump
+
+    def _evade(self, obs, plan: Plan, mx: float, my: float, boost: bool, jump: bool):
+        """Never stand still under fire. Whenever we shoot or are being shot at, run strafe legs across the
+        threat's line of fire: random leg length so the enemy cannot time a lead, boost bursts and hops when
+        energy allows, a radial push to hold a good range, and reverse instead of grinding into a wall.
+        Standing still is kept only when we are truly hidden (COVER reached and no line of sight)."""
+        cfg, me, t = self.cfg, obs["self"], obs["t"]
+        pos = me["pos"]
+        threat = self._threat(obs, plan)
+        if threat is None:
+            return mx, my, boost, jump
+        if plan.mode == "COVER" and plan.goal is not None and dist2(pos, plan.goal) < 3.0 and self.wm is not None:
+            eye = [threat["pos"][0], threat["pos"][1], threat["pos"][2] + self.mech_rules.get("eye_height", 8.0)]
+            if not self.wm.los(eye, [pos[0], pos[1], pos[2] + 8.5]):
+                return mx, my, boost, jump          # hidden: stay put, regen
+            self.cover_t = -1e9                     # cover is not hiding us: search again next decision
+        by = yaw_to(pos, threat["pos"])
+        d = dist2(pos, threat["pos"])
+        if t >= self.strafe_until:
+            self.strafe_sign = -self.strafe_sign
+            self.strafe_until = t + self.rng.uniform(cfg.strafe_leg_min_s, cfg.strafe_leg_max_s)
+        side = by + self.strafe_sign * math.pi / 2
+        if self.wm is not None and not self.wm.free(pos[0] + math.cos(side) * cfg.strafe_wall_probe,
+                                                     pos[1] + math.sin(side) * cfg.strafe_wall_probe):
+            self.strafe_sign = -self.strafe_sign    # wall on this side: run the other way
+            self.strafe_until = t + self.rng.uniform(cfg.strafe_leg_min_s, cfg.strafe_leg_max_s)
+            side = by + self.strafe_sign * math.pi / 2
+        px, py = math.cos(side), math.sin(side)
+        # hold a range band: back off when too close, close in when out of reach
+        lo, hi = self._range_band(me)
+        radial = 0.0
+        if plan.retreat or d < lo:
+            radial = -0.8
+        elif d > hi and plan.mode == "FIGHT":
+            radial = 0.5
+        rx, ry = math.cos(by) * radial, math.sin(by) * radial
+        if plan.mode in ("ROTATE", "COVER"):
+            # the zone or cover goal comes first; strafe on top of it
+            mx, my = mx + px * 0.6, my + py * 0.6
+        else:
+            mx, my = mx * 0.4 + px + rx, my * 0.4 + py + ry
+        energy = me["energy"]
+        if threat.get("kind") == "mech" and energy > cfg.strafe_boost_energy:
+            boost = True
+        if me.get("grounded", True) and energy > cfg.hop_energy and t >= self.hop_t:
+            jump = True
+            self.hop_t = t + self.rng.uniform(cfg.hop_every_s * 0.7, cfg.hop_every_s * 1.3)
+        return mx, my, boost, jump
+
+    def _threat(self, obs, plan: Plan) -> Optional[Dict[str, Any]]:
+        """Who we should be dodging: the plan's target, else a mech that hit us lately or aims at us, else a drone
+        that hit us lately."""
+        if plan.target is not None and plan.target_kind in ("mech", "npc"):
+            return plan.target
+        t, pos = obs["t"], obs["self"]["pos"]
+        hostile = self.mem.hostile_ids(t, self.cfg.provoked_s)
+        best, bd = None, 1e18
+        for m in obs["mechs"]:
+            d = dist2(m["pos"], pos)
+            aiming = m["kind"] == "mech" and d < 230 and abs(wrap(m["aim"][0] - yaw_to(m["pos"], pos))) < 0.1
+            if (m["id"] in hostile or aiming) and d < bd:
+                best, bd = m, d
+        return best
+
+    def _range_band(self, me) -> Tuple[float, float]:
+        kinds = {w["kind"] for w in me["weapons"] if w}
+        if "laser" in kinds:
+            return self.cfg.range_laser
+        if "lightning" in kinds:
+            return self.cfg.range_lightning
+        return self.cfg.range_gun
 
     def _steer(self, obs, goal: Tuple[float, float]) -> Tuple[float, float]:
         cfg, me, t = self.cfg, obs["self"], obs["t"]

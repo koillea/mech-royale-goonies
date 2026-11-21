@@ -1,33 +1,114 @@
 {
   "concept": "mech-royale",
   "sources": [
-    {"title": "Mech Royale track page", "url": "https://www.joinbuilders.org/buildathon/tracks/builders", "verification": "read 2026-11-21"},
-    {"title": "mechfight/1 protocol", "url": "https://www.joinbuilders.org/buildathon/tracks/builders/files/protocol.md", "verification": "read 2026-11-21, copy in kit/protocol.md"},
-    {"title": "mechfight bot kit", "url": "https://www.joinbuilders.org/buildathon/tracks/builders/files/mechfight-kit.tar.gz", "verification": "downloaded 2026-11-21, contents in kit/ and arena/"}
+    {
+      "title": "Mech Royale track page",
+      "url": "https://www.joinbuilders.org/buildathon/tracks/builders",
+      "verification": "read 2026-11-21"
+    },
+    {
+      "title": "mechfight/1 protocol",
+      "url": "https://www.joinbuilders.org/buildathon/tracks/builders/files/protocol.md",
+      "verification": "read 2026-11-21, copy in kit/protocol.md"
+    },
+    {
+      "title": "mechfight bot kit",
+      "url": "https://www.joinbuilders.org/buildathon/tracks/builders/files/mechfight-kit.tar.gz",
+      "verification": "downloaded 2026-11-21, contents in kit/ and arena/"
+    }
   ],
   "facts": [
-    {"fact": "Score per match is 16 - place; total is the mean over 48 practice matches vs 15 house bots (4 easy, 4 medium, 4 hard, 3 expert).", "source": "track page; protocol.md section 4", "verification": "doc"},
-    {"fact": "House bots share vision and hunt the weakest entrant first.", "source": "track page", "verification": "doc"},
-    {"fact": "Baseline (kit Python example bot) scores 1.15.", "source": "track page leaderboard", "verification": "doc"},
-    {"fact": "4 submissions per hour; final: top 32 practice teams play a 16-match qualifier, top 16 a 64-match series on new seeds.", "source": "track page", "verification": "doc"},
-    {"fact": "Cutoff Sun Nov 22 11:00 AM ET; the chosen submission locks at cutoff.", "source": "track page", "verification": "doc"},
-    {"fact": "Decision every 0.1 s, 50 ms budget; coast 1 s then idle on missed answers; 1 CPU, 512 MB, read-only fs, no network, uid 65534.", "source": "protocol.md sections 2-3", "verification": "doc; sandbox check passes with these flags"},
-    {"fact": "Mech 1400 HP, regen 45 HP/s after 5 s without dealing or taking damage, rear hits x1.5 outside a 180 degree front arc.", "source": "protocol.md section 7", "verification": "verified in hello.config of the recorded match"},
-    {"fact": "Laser: 315 damage hitscan at full 0.75 s charge, 280 m range, 1.65 s cooldown; charging is visible to opponents.", "source": "protocol.md section 7", "verification": "verified: three 315 laser hits from 150 m in the recorded match"},
-    {"fact": "Gun: 45 damage, 252 m/s, 0.24 s cooldown, mag 12, reload 2.4 s, range 230 m, spread 0.6 degrees.", "source": "protocol.md section 7", "verification": "verified in hello.config"},
-    {"fact": "Zone: radius 560 -> 380 -> 240 -> 140 -> 70 -> 25 -> 0 m, dps 20/35/60/100/160/260; hold/shrink windows in config.zone.phases.", "source": "protocol.md section 9", "verification": "verified in hello.config"},
-    {"fact": "Vision 200 m in a 120 degree yaw wedge plus 45 m all round; tracked for 5 s after leaving view. Gun sound carries 320 m.", "source": "protocol.md section 8", "verification": "verified in hello.config"}
+    {
+      "fact": "Score per match is 16 - place; total is the mean over 48 practice matches vs 15 house bots (4 easy, 4 medium, 4 hard, 3 expert).",
+      "source": "track page; protocol.md section 4",
+      "verification": "doc"
+    },
+    {
+      "fact": "House bots share vision and hunt the weakest entrant first.",
+      "source": "track page",
+      "verification": "doc"
+    },
+    {
+      "fact": "Baseline (kit Python example bot) scores 1.15.",
+      "source": "track page leaderboard",
+      "verification": "doc"
+    },
+    {
+      "fact": "4 submissions per hour; final: top 32 practice teams play a 16-match qualifier, top 16 a 64-match series on new seeds.",
+      "source": "track page",
+      "verification": "doc"
+    },
+    {
+      "fact": "Cutoff Sun Nov 22 11:00 AM ET; the chosen submission locks at cutoff.",
+      "source": "track page",
+      "verification": "doc"
+    },
+    {
+      "fact": "Decision every 0.1 s, 50 ms budget; coast 1 s then idle on missed answers; 1 CPU, 512 MB, read-only fs, no network, uid 65534.",
+      "source": "protocol.md sections 2-3",
+      "verification": "doc; sandbox check passes with these flags"
+    },
+    {
+      "fact": "Mech 1400 HP, regen 45 HP/s after 5 s without dealing or taking damage, rear hits x1.5 outside a 180 degree front arc.",
+      "source": "protocol.md section 7",
+      "verification": "verified in hello.config of the recorded match"
+    },
+    {
+      "fact": "Laser: 315 damage hitscan at full 0.75 s charge, 280 m range, 1.65 s cooldown; charging is visible to opponents.",
+      "source": "protocol.md section 7",
+      "verification": "verified: three 315 laser hits from 150 m in the recorded match"
+    },
+    {
+      "fact": "Gun: 45 damage, 252 m/s, 0.24 s cooldown, mag 12, reload 2.4 s, range 230 m, spread 0.6 degrees.",
+      "source": "protocol.md section 7",
+      "verification": "verified in hello.config"
+    },
+    {
+      "fact": "Zone: radius 560 -> 380 -> 240 -> 140 -> 70 -> 25 -> 0 m, dps 20/35/60/100/160/260; hold/shrink windows in config.zone.phases.",
+      "source": "protocol.md section 9",
+      "verification": "verified in hello.config"
+    },
+    {
+      "fact": "Vision 200 m in a 120 degree yaw wedge plus 45 m all round; tracked for 5 s after leaving view. Gun sound carries 320 m.",
+      "source": "protocol.md section 8",
+      "verification": "verified in hello.config"
+    }
   ],
   "assumptions": [
-    {"assumption": "obs.zone.center/radius are the phase-start circle, interpolated linearly during the shrink window.", "status": "unverified; bot interpolates, which is the safer reading if they are already current"},
-    {"assumption": "House bots react to our gunfire sounds, so unprovoked long-range shooting attracts them.", "status": "unverified; motivates engage_range 110 m"},
-    {"assumption": "Standing still is safest between rotations (no step sounds under 5 m/s).", "status": "doc says silent; effect on house bots unverified"}
+    {
+      "assumption": "obs.zone.center/radius are the phase-start circle, interpolated linearly during the shrink window.",
+      "status": "unverified; bot interpolates, which is the safer reading if they are already current"
+    },
+    {
+      "assumption": "House bots react to our gunfire sounds, so unprovoked long-range shooting attracts them.",
+      "status": "unverified; motivates engage_range 110 m"
+    },
+    {
+      "assumption": "Standing still is safest between rotations (no step sounds under 5 m/s).",
+      "status": "doc says silent; effect on house bots unverified"
+    }
   ],
   "measurements": [
-    {"what": "map grid vs recorded positions", "result": "468/469 recorded mech positions on walkable cells; terrain error < 6 mm"},
-    {"what": "decision latency, match sandbox", "result": "p99 ~12 ms, max ~13 ms (budget 50 ms)"},
-    {"what": "recorded match: kit bot", "result": "13th place; lost ~950 HP to laser shots from 150 m answered with the gun"}
+    {
+      "what": "map grid vs recorded positions",
+      "result": "468/469 recorded mech positions on walkable cells; terrain error < 6 mm"
+    },
+    {
+      "what": "decision latency, match sandbox",
+      "result": "p99 ~12 ms, max ~13 ms (budget 50 ms)"
+    },
+    {
+      "what": "recorded match: kit bot",
+      "result": "13th place; lost ~950 HP to laser shots from 150 m answered with the gun"
+    }
   ],
-  "leaderboard_snapshot_2026-11-21": {"baseline": 1.15, "top": [["AT", 4.77], ["TigerTown27", 4.25], ["3141592654", 4.23], ["whyMiso", 4.13], ["UNCC TRC", 4.04]]},
-  "submissions": []
+  "submissions": [
+    {
+      "version": "v1",
+      "commit": "c6a6b63",
+      "score": 3.21,
+      "rank": "51 of 94",
+      "note": "survivor bot; mean place ~12.8. No per-match data available."
+    }
+  ]
 }

@@ -52,11 +52,20 @@ Rules, first match wins (`plan.py`):
 | Mode | When | What it does |
 |---|---|---|
 | `ROTATE` | outside the current (interpolated) circle, or the shrink would catch us with < 8 s slack | boost to the hold point, still shooting back |
-| `FIGHT` | a mech hit us in the last 4 s, or one is within 110 m, or one under 40 % HP within 180 m, or 3 or fewer mechs remain | face it, strafe, shoot; retreat below 35 % HP if it has more HP |
+| `FIGHT` | a mech hit us in the last 4 s, or one is within 110 m, or one under 40 % HP within 180 m, or 3 or fewer mechs remain | face it, shoot, strafe (see Evasion); retreat below 35 % HP if it has more HP |
 | `COVER` | in a FIGHT where the enemy has a laser and we don't (beyond 60 m), or we are losing on HP | run to the nearest walkable point within 36 m that the attacker's eye has no line of sight to |
 | `ALERT` | hit by something we cannot see | turn to the damage bearing, keep moving |
 | `LOOT` | before 260 s, no enemy within 120 m, not pulling us away from the zone | better weapon (laser > lightning > mortar), cube, uncontested close supply drop, crate (HP ≥ 70 %) |
 | `HOLD` | otherwise | walk to the hold point (55 % of the next circle's radius on our side; 35 % when it is ≤ 70 m) and stand silently, sweeping the 120° view cone, facing any visible mech |
+
+## Evasion (`_evade`)
+
+Whenever the bot shoots at a mech or drone, or a mech hit it in the last 4 s or is aiming at it, it never stands still:
+strafe legs across the line of fire with random length (0.8-2.0 s) so the enemy cannot time its lead, boost while
+energy is above 45, a hop every ~2.5 s while energy is above 60, a push to keep the best weapon's range band
+(gun 35-130 m, laser 60-200 m, lightning 12-38 m), and an immediate reversal when a wall is within 6 m on the
+strafe side. The one exception is real cover: at the COVER spot with no line of sight from the attacker it stays put
+to regenerate; if the attacker can still see it there, it strafes and searches for new cover.
 
 ## Quick start
 

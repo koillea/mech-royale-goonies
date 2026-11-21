@@ -174,7 +174,7 @@ class HeuristicPlanner:
             for c in obs["crates"]:
                 d = dist2(c["pos"], pos)
                 if d < cfg.crate_radius and safe(c["pos"]):
-                    cands.append((d, Plan("LOOT", goal=None if d < 25 else (c["pos"][0], c["pos"][1]), target=c,
+                    cands.append((d, Plan("LOOT", goal=(c["pos"][0], c["pos"][1]) if d > 25 else None, target=c,
                                           target_kind="crate", rationale=f"LOOT crate {d:.0f}m")))
         if not cands:
             return None
