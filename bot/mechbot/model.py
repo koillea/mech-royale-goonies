@@ -388,7 +388,10 @@ class MechBot:
             # the zone or cover goal comes first; strafe on top of it
             mx, my = mx + px * 0.6, my + py * 0.6
         else:
-            mx, my = mx * 0.4 + px + rx, my * 0.4 + py + ry
+            if plan.collect:                        # E6: walking onto a cube mid-fight: strafe less
+                mx, my = mx * 1.2 + px * 0.4, my * 1.2 + py * 0.4
+            else:
+                mx, my = mx * 0.4 + px + rx, my * 0.4 + py + ry
         energy = me["energy"]
         if threat.get("kind") == "mech" and energy > cfg.strafe_boost_energy:
             boost = True

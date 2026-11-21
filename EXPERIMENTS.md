@@ -198,6 +198,21 @@ Official scores: **E8 (on e2b): 3.50** (main `998454c`; assumed to be the submis
 confirmed) - worse than champ-3.69 although the simulator said +0.30 +- 0.29. E6, E7, E9 on e2b: not submitted.
 **Decision (team): REVERTED.** The board decides. All four are rebuilt as single changes on champ-3.69 (below).
 
+## E6-E9 rebuilt on champ-3.69 (board decides; one change each)
+
+champ-3.69 response time (pinned to 1 CPU, no browser, 100 matches): max 14.4 ms, p99 3.05 ms, p99.9 9.0 ms,
+0 decisions over 25 ms. Quick check per branch: 30 matches, no crashes, max 11-18 ms, p99 ~5 ms, 0 over 25 ms;
+tests, quality gate and check.py in the scorer's Docker sandbox pass (max 5-7 ms).
+
+| id | branch | full commit | change | official |
+|---|---|---|---|---|
+| E6 | ce6 | `f579248243f7207ddba7c3afa2960b7d441c1694` | cubes all match (roofs, mechs near, mid-fight within 25 m; not with 2+ attackers; inside zone) | pending (submitted first) |
+| E7 | ce7 | `4c2447fb16186a38333106f923e225e7b6be3117` | plating before armor | pending |
+| E8 | ce8 | `3020940f9b134974f29183e02efc6c7e3c88b819` | opening: up to 150 m for a laser when not attacked | pending (E8 on e2b scored 3.50) |
+| E9 | ce9 | `48934d84016c09b8d7439d871e87a0fa3170bd1b` | below 70 % and not hit: no new fights until 95 % | pending |
+
+Plan: each alone on main, submitted in turn; then the ones that beat 3.69 are combined.
+
 ## E5 data (first-minute deaths, champion, 200 seeds)
 
 30 % of matches. First damage at a median 11 s, death at 35 s. Two attackers in 36 of 61, three in 9. In the
