@@ -143,15 +143,18 @@
       "wait_ms": 428
     },
     {
-      "version": "v3.2 (or v3.2 + merged try-b/c/d)",
-      "commit": "a35616c / 627ff47",
-      "submitted": "Fri 11:23 PM ET",
-      "score": 2.96,
-      "wait_ms": 784,
-      "note": "roof perching off. The submission raced a merge of try-b/c/d/e + sim into main (last merge 11:23:22 ET), so it may have built the bundle. Roof versions 3.52 / 3.69 vs no-roof 3.21 / 2.96: perching likely helps. main restored to v3.1."
+      "version": "v3.3",
+      "commit": "24a2e95",
+      "submitted": "Fri 11:34 PM ET",
+      "score": 3.04,
+      "wait_ms": 90,
+      "note": "v3.1 + no crate shooting. Lower than v3.1 (3.69): loot (cubes -> HP, upgrades; weapons) likely matters more than quiet"
     }
   ],
   "plan": [
-    "v3.3 (main): v3.1 + no crate shooting (one change)."
+    "v3.4 (main): v3.1 + laser grab up to 70 m (clear of enemies, even from a roof, then back). Next: flank-biased strafing."
+  ],
+  "observations": [
+    "Cast (Jessica): the top bot strafes, appears to 'crouch' (no crouch action exists: maybe standing still at low cover or moving slowly), flanks bots, and picked up the laser."
   ]
 }

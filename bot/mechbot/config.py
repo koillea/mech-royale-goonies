@@ -33,7 +33,6 @@ class BotConfig:
     # --- loot (section 7 Weapon loot, section 10 Cubes)
     loot_radius: float = 55.0            # detour for a weapon or cube no further than this
     loot_until_t: float = 260.0          # stop looting once the circles are small and fights are constant
-    shoot_crates: bool = False           # v3.3: gunfire carries 320 m, a breaking crate 220 m (section 8)
     crate_radius: float = 45.0
     crate_min_hp_frac: float = 0.7
     weapon_pref: List[str] = field(default_factory=lambda: ["laser", "lightning", "mortar"])
@@ -59,6 +58,12 @@ class BotConfig:
     w_crowd: float = 0.8
     w_npc: float = 0.6
     w_stay: float = 0.25
+
+    # --- v3.4: laser grab (315 hitscan damage at 280 m, no lead): worth a short trip even from our spot,
+    # then straight back (taking it re-picks the spot)
+    laser_grab: bool = True
+    laser_grab_radius: float = 70.0      # v3.4: the top bot was seen picking up the laser
+    laser_grab_clear: float = 80.0       # skip it if a seen mech is this close to it
 
     # --- NPC drones aggro at 45 m with line of sight (section 7 NPC drones)
     npc_avoid: float = 55.0
