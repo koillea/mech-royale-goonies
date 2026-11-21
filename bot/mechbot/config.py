@@ -93,6 +93,40 @@ class BotConfig:
     range_laser: tuple = (60.0, 200.0)
     range_lightning: tuple = (12.0, 38.0)
 
+    # --- aim (aim.py). Shots leave along the actual torso aim (section 7 Weapons); an action applies for the next
+    # 2 ticks = 0.1 s (section 2), so the lead starts from half of that on average.
+    aim_latency_s: float = 0.05
+    track_window_s: float = 2.0          # history kept per target for prediction
+    reversals_for_mean: int = 2          # this many strafe reversals in the window: aim at the jitter's centre
+    preaim_hostile_s: float = 6.0        # keep pre-aiming at a mech that hit us this long after it hid
+    preaim_hidden_s: float = 2.0         # extrapolate a hidden mech at most this far
+    # "critical hits": the only damage multiplier on positioning is rear armour, x1.5 outside the target's
+    # 180 degree front arc (section 7 Rear armor); laser cook-off (+60 % on a mortar carrier) is automatic.
+    rear_target_bonus: float = 60.0      # target choice: a mech facing away counts as 60 m closer
+    flank_bias: float = 0.7              # chance each strafe leg is chosen to walk around toward the target's back
+
+    # --- intel (intel.py): enemy estimates from sight, beams, damage, incoming bullets and sounds
+    intel_half_life_s: float = 3.0       # an estimate's confidence halves every 3 s without fresh info
+    intel_merge_m: float = 30.0          # a seen mech this close to an anonymous estimate accounts for it
+    unseen_dist: float = 100.0           # shot by an unseen gun with no matching sound: assume this distance
+    preaim_intel_conf: float = 0.4       # face a heard-only threat once intel is this sure of it
+    w_intel: float = 0.6                 # spot choice: penalty per intel threat near a spot (times confidence)
+
+    # --- cover when shot, fire back from the best angle (model._combat)
+    intel_cover: bool = True
+    shot_window_s: float = 1.0           # "being shot" = a mech damaged us this recently
+    cover_cycle_s: float = 6.0           # the hide / peek cycle continues this long after the last hit
+    brawl_range: float = 25.0            # closer than this, fight (turning to run gives free rear hits, x1.5)
+    flanked_fight_range: float = 70.0    # a shooter that walks round our cover and sees us inside this: fight back
+    max_relocations: int = 3             # found again this many times within cover_cycle_s: stand and fight
+    cover_other_penalty: float = 25.0    # cover cost per other threat (x its confidence) that can see the spot
+    peek_bonus: float = 12.0             # cover with a firing spot toward the shooter beats one without
+    peek_rear_bonus: float = 8.0         # ...more if that spot sees the shooter's back (rear armour x1.5)
+    peek_height_bonus: float = 0.6       # ...per metre of height over the shooter (up to 10 m)
+    min_cover_s: float = 0.8             # stay hidden at least this long before peeking
+    peek_max_s: float = 2.2              # longest peek (a full laser charge is 0.75 s)
+    peek_min_hp: float = 0.3             # below this HP fraction, stay hidden and regenerate
+
     # --- sensing: sweep the 120 degree view cone so nobody reaches our back unseen (section 8 Vision)
     scan_amp: float = 1.4
     scan_rate: float = 0.9

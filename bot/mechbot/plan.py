@@ -171,7 +171,10 @@ class HeuristicPlanner:
             is_hostile = m["id"] in hostile
             if not (is_hostile or d < radius):
                 continue   # not a threat: watch it, do not shoot (shots give us away and reset our regen)
-            score = (1000 if is_hostile else 0) - d - 400 * frac
+            # prefer a target whose back is to us: our hits land outside its front arc for rear_mult (x1.5)
+            to_us = math.atan2(pos[1] - m["pos"][1], pos[0] - m["pos"][0])
+            facing_away = abs((to_us - m["aim"][0] + math.pi) % (2 * math.pi) - math.pi) > math.pi / 2
+            score = (1000 if is_hostile else 0) - d - 400 * frac + (cfg.rear_target_bonus if facing_away else 0)
             if score > best_score:
                 best, best_score = m, score
                 why = f"{m['id']} {'hostile' if is_hostile else 'inside'} {d:.0f}m"

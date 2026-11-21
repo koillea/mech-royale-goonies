@@ -81,6 +81,31 @@ On a roof every move, strafe and cover search is checked against the roof's own 
 | `LOOT` | on the ground travelling, before 260 s, no enemy within 120 m, not pulling us away from the spot | better weapon (laser > lightning > mortar), cube, uncontested close supply drop, crate (HP >= 70 %) |
 | `HOLD` / `CLIMB` / `PERCH` | otherwise | walk to the spot / climb onto it / stand on it silently, sweeping the 120 degree view cone and facing any visible mech without shooting it |
 
+## Aim (`aim.py`)
+
+Each enemy gets 2 s of history. Steady movers are led on their current velocity; strafers (two or more
+reversals across our line of sight) are led on their drift, i.e. the centre of the jitter; airborne targets fall
+with gravity but never below the ground; predictions never pass through walls. The gun's flight time is solved
+against that prediction. With no target, the torso pre-aims at the nearest visible mech, at where a mech that
+shot us was heading after it hid, or at the strongest sound intel has placed. Rear armour (x1.5 outside a
+target's 180 degree front arc) is the game's only positional damage bonus, so the bot prefers targets facing
+away and 70 % of its strafe legs walk around toward the target's back.
+
+## Intel and cover when shot (`intel.py`, `model._combat`)
+
+Intel keeps an estimate of every enemy mech: exact while seen (and for 5 s after), exact from the start of a
+laser beam or lightning arc, along the bearing for damage (distance from a matching gunfire sound, or 30 m for
+lightning), back along incoming bullets, and from sounds (footsteps, boost, jets, reloads, weapons) at a
+distance set by near / mid / far. Confidence halves every 3 s.
+
+When a mech shoots us (or the fight is bad: it has a laser we lack, or we are losing on HP), the bot runs to the
+nearest point hidden from the shooter that, as far as intel knows, the other mechs around cannot see either,
+preferring cover that comes with a firing spot toward the shooter on its back side and higher up. Hidden, it
+reloads, lets the laser cool, regenerates and pre-aims; then it peeks from that firing spot and ducks back when
+hit, dry, the laser has fired, or 2.2 s pass. It never runs from a pusher: a shooter inside 25 m, or one that
+walks round the cover and sees it inside 70 m, is fought in the open, as is anything after 3 relocations in 6 s.
+The zone always comes first.
+
 ## Evasion (`_evade`)
 
 Whenever the bot shoots at a mech or drone, or a mech hit it in the last 4 s or is aiming at it, it never stands still:
