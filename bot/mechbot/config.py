@@ -44,17 +44,6 @@ class BotConfig:
     perch_min_cells: int = 6             # interior roof cells (3 m each) needed to strafe without falling off
     climb_safety: float = 0.8            # use 80 % of the tank's theoretical climb (protocol: ~60 m on 100 energy)
     climb_energy_margin: float = 15.0    # wait at the wall until energy covers the climb plus this
-    # --- corner fighting (model._peek_burst): seen on the cast, strong bots peek from cover with bursts and
-    # never fully commit. Only for a fight the planner chose, on the ground, with a corner within pb_radius.
-    peek_burst: bool = True
-    pb_radius: float = 10.0              # cover must be this close: no long runs to cover (v4's likely mistake)
-    pb_burst_s: float = 1.0              # time out per peek (4-5 gun rounds at 0.24 s)
-    pb_duck_s: float = 0.6               # time back in cover between bursts (reload there when low)
-    pb_min_range: float = 20.0           # closer than this, strafe and fight in the open
-    pb_max_range: float = 200.0
-    pb_search_ms: float = 6.0            # time cap on the corner search per decision
-    climb_safe_range: float = 150.0      # try-climb: do not start a climb while a visible mech is this close
-    climb_wait_max_s: float = 12.0       # ...wait at the wall at most this long, then pick another spot
     climb_timeout_s: float = 7.0         # give up on a roof after this long trying; avoid it for bad_perch_s
     bad_perch_s: float = 60.0
     respot_s: float = 8.0                # re-score spots this often (hysteresis keeps us put unless clearly better)
@@ -69,12 +58,6 @@ class BotConfig:
     w_crowd: float = 0.8
     w_npc: float = 0.6
     w_stay: float = 0.25
-
-    # --- v3.4: laser grab (315 hitscan damage at 280 m, no lead): worth a short trip even from our spot,
-    # then straight back (taking it re-picks the spot)
-    laser_grab: bool = True
-    laser_grab_radius: float = 70.0      # v3.4: the top bot was seen picking up the laser
-    laser_grab_clear: float = 80.0       # skip it if a seen mech is this close to it
 
     # --- NPC drones aggro at 45 m with line of sight (section 7 NPC drones)
     npc_avoid: float = 55.0
@@ -98,7 +81,6 @@ class BotConfig:
     # enemy leads on our current velocity, so legs of random length (reversals it cannot time) at boost speed
     # (19.5 vs 11.7 m/s, section 7 Movement) make its lead wrong. Boost drains 17/s and energy regenerates
     # 18/s after 0.6 s, so bursts above a reserve keep energy for unsticking and jets.
-    flank_bias: float = 0.7              # try-flank: chance a strafe leg walks around toward the target's back
     strafe_leg_min_s: float = 0.8
     strafe_leg_max_s: float = 2.0
     strafe_wall_probe: float = 6.0       # metres: a wall this close on the strafe side reverses the leg
@@ -112,7 +94,5 @@ class BotConfig:
     range_lightning: tuple = (12.0, 38.0)
 
     # --- sensing: sweep the 120 degree view cone so nobody reaches our back unseen (section 8 Vision)
-    fast_scan: bool = True               # turn all the way round while moving too, skipping walls close by
-    scan_wall_m: float = 8.0
     scan_amp: float = 1.4
     scan_rate: float = 0.9

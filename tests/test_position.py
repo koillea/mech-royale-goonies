@@ -132,17 +132,3 @@ def test_fight_only_when_needed(hello, observations, kind, dist, hostile, fights
         o["events"] = [{"type": "damaged", "amount": 45, "weapon": "gun", "bearing": 0.0, "by": 9}]
     bot.act(o)
     assert (bot.last_plan.target is not None) == fights
-
-
-def test_waits_at_the_wall_while_watched(hello, observations):
-    bot, o, sp = _at_launch(hello, observations, energy=100)
-    p = o["self"]["pos"]
-    o["mechs"] = [{"id": 5, "kind": "mech", "pos": [p[0] + 90, p[1], p[2]], "vel": [0, 0, 0], "aim": [3.1, 0],
-                   "hp": 1400, "max_hp": 1400, "weapons": ["gun"]}]
-    a = bot.act(o)
-    assert bot.last_plan.mode in ("CLIMB", "HOLD") and not a["jump"]       # watched: stay at the wall
-    o["mechs"] = []
-    o["tick"] += 2
-    o["t"] += 0.1
-    a = bot.act(o)
-    assert a["jump"]                                                       # clear: go up
