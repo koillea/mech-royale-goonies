@@ -222,9 +222,63 @@ daemon restart did not repeat).
 
 | id | branch | full commit | change | official |
 |---|---|---|---|---|
-| E8 | ne8 | `57083018f6c3f0ae242b456cb20d1609761642e8` | opening: up to 150 m for a laser when not attacked (merged by hand next to E6) | pending (submitted next) |
-| E7 | ne7 | `85b2a8481b793f283804987b5e1ac7cb7108a389` | plating before armor | pending |
+| E8 | ne8 | `57083018f6c3f0ae242b456cb20d1609761642e8` | opening: up to 150 m for a laser when not attacked (merged by hand next to E6) | **3.73** (BB-5097B658, main `3b97489`): below 3.77, REVERTED |
+| E7 | ne7 | `85b2a8481b793f283804987b5e1ac7cb7108a389` | plating before armor | pending (on main `d289c59`) |
 | E9 | ne9 | `a78da01b71ac363b41bc4d93162f7eeeff042ee4` | below 70 % and not hit: no new fights until 95 % | pending |
+
+## Board results (all official runs, 48 matches each)
+
+| board run | bot commit | experiment | the one change | sim estimate | board |
+|---|---|---|---|---|---|
+| - | `1bc77f0` | v1 | survivor bot | - | 3.21 |
+| - | `5db062e` | v3 | strafing + roof perching (2 changes) | - | 3.52 |
+| - | `9cd3063` | v4 | cover-first + laser detour + speed fix (bundle) | - | 2.58 |
+| - | `cf8d2a4` | A+B+C | speed fix + aim + intel cover (bundle) | - | 2.90 |
+| - | `a13a3b3` | v5 | fire discipline + intel avoidance + laser grab (bundle) | - | 3.19 |
+| - | `bbd6f57` | v3.1 | v3 + decision-time fix | - | 3.69 |
+| - | `a35616c` | v3.2 | roof perching off | - | 2.96 |
+| - | `24a2e95` | v3.3 | no crate shooting | - | 3.04 |
+| - | `e3a20e7` | v3.4 | laser grab up to 70 m | - | 3.63 |
+| - | `5935272` | v3.6 | climb safety + peek + flank + scan (bundle) | - | 3.48 |
+| - | `23980ee` | E2 (+ node budget) | no break-off from a nearly dead target | +0.04 +- 0.14 | 3.69 |
+| - | `d522b95` | E8 on e2b | opening laser up to 150 m | +0.30 +- 0.29 | 3.50 |
+| BB-9D1FB3DD | `f579248` | **E6** | cubes all match | +1.00 (30 seeds) | **3.77** (champ-3.77) |
+| BB-5097B658 | `5708301` | E8 on champ-3.77 | opening laser up to 150 m | +1.17 (30 seeds) | 3.73 |
+
+Lessons (team, Sat Nov 21): simulator scores do not predict the board (+1.17 sim -> -0.04 board); use the
+simulator only to confirm a change does what it should. Every bundle scored badly; combine only changes that each
+beat the champion on the board on their own.
+
+## Behaviour check (100 seeds; does each change do what it is meant to?)
+
+| | champ-3.69 | champ-3.77 (E6) | E7 | E8 | E9 |
+|---|---|---|---|---|---|
+| cubes / match | 1.65 | 3.17 | 3.27 | 3.44 | 3.00 |
+| upgrades / match | 0.89 | 1.42 | 1.46 | 1.45 | 1.35 |
+| plating / match | 0.21 | 0.22 | 0.27 | 0.21 | 0.17 |
+| laser by 2:00 | 22 % | 29 % | 29 % | 36 % | 27 % |
+| max armor at end | 1540 | 1618 | 1636 | 1622 | 1594 |
+
+E6 works (cubes x1.9, upgrades +60 %) but max armor only 1540 -> 1618 vs ~2981 on top bots: 3 cubes is far from
+the 10-cube cap. E7 barely moves plating (0.22 -> 0.27): each offer shows 3 random upgrades of ~13, and we get
+~1.4 offers per match; only more cubes can fix that. E8 moves laser-by-2:00 only 29 -> 36 %: it only goes for
+lasers it happens to see.
+
+## Duels (sim/duel.py): our bot vs ONE expert house bot, 300 fixed seeds, nothing else on the map
+
+champ-3.77 gun only: win 55.7 % / loss 11.3 % / draw 33.0 %; our gun hits 82 %, theirs 60 %; HP left after a
+win 18 %. Both with lasers: win 51.3 % / loss 20.3 %; laser hits ours 97 %, theirs 77 %.
+
+| id | branch / commit | change | gun duels: win, net vs champ (clear if > 2 sqrt(changed)) | laser duels | decision |
+|---|---|---|---|---|---|
+| D1 | d1 `198a6b9ac7855c6381ef0b69bb64d5b6a501f3c2` | strafe legs 0.35-0.9 s (was 0.8-2.0) | **63.0 %, +22 (> 13): clear**; their hits 60 -> 53 %, losses 11.3 -> 5.3 %, HP left 18 -> 29 % | 50.7 %, -2 | **to the board** |
+| D2 | d2 `f1c896c` | gun band 70-170 m (was 35-130) | 58.3 %, +8 (< 10.2) | 51.3 %, 0 | not clear |
+| D3 | d3 `373b3cf` | 1v1: no cover when merely losing on HP | 55.3 %, -1 | 52.7 %, +4 | not clear |
+| D4 | d4 `9078147` | boost while strafing above 20 energy (was 45) | 58.3 %, +8 | **45.3 %, -18: clearly worse** | rejected |
+
+Response time: p99 11-15 ms in every duel run; occasional single decisions of 37-54 ms move at random between
+runs (identical play, so environmental, not the bot's computation); the real bot process in the scorer's Docker
+sandbox stays at max 5-10 ms. Candidate safety experiment: halve the per-decision search budget.
 
 ## E5 data (first-minute deaths, champion, 200 seeds)
 

@@ -19,9 +19,16 @@ mech-mech pushing, trees. Placement: death order; at 480 s survivors are ranked 
 """
 from __future__ import annotations
 
+import gc
 import math
+import os
 import random
 import time
+
+# Measurement only: pause Python's garbage collector while an entrant decides, so a collection of the whole
+# simulation's objects (which the real bot, alone in its own process with gc.freeze(), never pays) is not
+# charged to the bot's response time.
+SIM_GC_OFF = os.environ.get("SIM_GC_OFF", "0") == "1"
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 DT = 0.05
@@ -75,6 +82,10 @@ class Mech:
         self.upg_t: List[Tuple[float, str]] = []
         self.laser_t: Optional[float] = None
         self.mode_hist: List[Tuple[float, Optional[str]]] = []
+        self.shots: Dict[str, int] = {}
+        self.hits: Dict[str, int] = {}
+        self.dmg_dealt = 0.0
+        self.dmg_taken = 0.0
 
     def _weapon(self, kind: str) -> Dict[str, Any]:
         w = {"kind": kind, "cooldown": 0.0}
@@ -273,6 +284,9 @@ class Match:
                 continue
             self._offer_timeout(m)
             obs = self._obs(m, alive_n, vis_items)
+            gc_off = SIM_GC_OFF and not m.house
+            if gc_off:
+                gc.disable()
             t0 = time.perf_counter()
             try:
                 act = m.ctrl.act(obs) or {}
@@ -281,6 +295,8 @@ class Match:
                     print(f"{m.name} act() raised {e!r}")
                 act = {}
             ms = (time.perf_counter() - t0) * 1000
+            if gc_off:
+                gc.enable()
             if not m.house:
                 m.decide_ms.append(ms)
             m.events, m.sounds, m.beams = [], [], []
@@ -596,6 +612,7 @@ class Match:
                     self.bullets.append({"id": self._nid("proj"), "kind": "gun", "pos": p, "vel": v, "owner": m.id,
                                          "dmg": ws["damage"] * m.dmg_mult(self.rules), "ttl": ws["range"] / ws["speed"],
                                          "weapon": "gun", "r": self.rules["projectile"]["gun_radius"]})
+                    m.shots["gun"] = m.shots.get("gun", 0) + 1
                     w["ammo"] -= 1
                     w["cooldown"] = ws["cooldown"]
                     if w["ammo"] <= 0:
@@ -625,6 +642,7 @@ class Match:
                     v = [d[0] * ws["speed"], d[1] * ws["speed"], d[2] * ws["speed"]]
                     self.shells.append({"id": self._nid("proj"), "kind": "mortar", "pos": p, "vel": v, "owner": m.id,
                                         "dmg": ws["damage"] * m.dmg_mult(self.rules), "ttl": ws["ttl"], "weapon": "mortar"})
+                    m.shots["mortar"] = m.shots.get("mortar", 0) + 1
                     w["cooldown"] = ws["cooldown"]
                     self._sound(m.pos, "mortar", m.id)
                     m.last_combat = self.t
@@ -666,6 +684,7 @@ class Match:
         return best
 
     def _laser(self, m: Mech, w, ws):
+        m.shots["laser"] = m.shots.get("laser", 0) + 1
         frac = min(w["charge"], ws["charge"]) / ws["charge"]
         dmg = ws["damage"] * (ws["min_frac"] + (1 - ws["min_frac"]) * frac) * m.dmg_mult(self.rules)
         p, d = self._muzzle(m)
@@ -683,6 +702,7 @@ class Match:
         m.last_combat = self.t
 
     def _lightning(self, m: Mech, w, ws):
+        m.shots["lightning"] = m.shots.get("lightning", 0) + 1
         m.energy -= ws["energy"]
         m.last_spend = self.t
         w["cooldown"] = ws["cooldown"]
@@ -807,6 +827,8 @@ class Match:
             self.telemetry["drone_kills"] += 1
         if kind == "mech":
             done = self._damage(obj, dmg, att, weapon, origin)
+            att.hits[weapon] = att.hits.get(weapon, 0) + 1
+            att.dmg_dealt += done
             att.events.append({"type": "hit", "target": obj.id, "amount": round(done, 1), "weapon": weapon})
             att.last_combat = self.t
         elif kind == "npc":
@@ -840,6 +862,7 @@ class Match:
                     dmg *= m.stats["rear_mult"]
                 dmg *= max(0.0, 1 - m.stats.get("armor", 0.0))
         m.hp -= dmg
+        m.dmg_taken += dmg
         m.last_combat = self.t
         by = att.id if att is not None else npc_id
         src = att.pos if att is not None else origin
