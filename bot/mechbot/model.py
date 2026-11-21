@@ -221,6 +221,8 @@ class MechBot:
         d = dist2(me["pos"], tgt["pos"])
         laser = "laser" in tgt.get("weapons", []) and not any(w and w["kind"] == "laser" for w in me["weapons"])
         losing = me["hp"] < tgt.get("hp", 1400) * 0.8
+        attackers = {i for i in self.mem.hostile_ids(t, 5.0) if i < 100}
+        losing = losing and len(attackers) >= 2      # D3: in a 1v1, losing on HP alone is no reason to break off
         if not (plan.retreat or (laser and d > 60) or (losing and d > 45)):
             return
         if self.cover_from != tgt["id"] or t - self.cover_t > 1.0:
