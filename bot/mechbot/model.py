@@ -474,6 +474,13 @@ class MechBot:
         d = dist2(pos, threat["pos"])
         if t >= self.strafe_until:
             self.strafe_sign = -self.strafe_sign
+            # flank: lean the legs toward the threat's back (hits outside its 180 degree front arc deal x1.5).
+            # rel = our angle around the threat measured from its aim; with side = by + sign*pi/2 and
+            # by = yaw(us -> threat), sign -1 walks us counter-clockwise around it (rel grows), +1 clockwise.
+            # Only with probability flank_bias, so the legs stay unpredictable.
+            if threat.get("kind") == "mech" and "aim" in threat and self.rng.random() < cfg.flank_bias:
+                rel = wrap(yaw_to(threat["pos"], pos) - threat["aim"][0])
+                self.strafe_sign = -1.0 if rel >= 0 else 1.0
             self.strafe_until = t + self.rng.uniform(cfg.strafe_leg_min_s, cfg.strafe_leg_max_s)
         side = by + self.strafe_sign * math.pi / 2
         zr = self._roof_z(me, plan.goal) if self.wm is not None else None
