@@ -2,7 +2,7 @@
 import copy
 import math
 
-from mechbot import MechBot
+from mechbot import BotConfig, MechBot
 
 
 def _attacked(observations, dist=90.0, weapons=("gun",)):
@@ -17,7 +17,7 @@ def _attacked(observations, dist=90.0, weapons=("gun",)):
 
 
 def test_moves_across_line_of_fire_when_attacked(hello, observations):
-    bot = MechBot(hello)
+    bot = MechBot(hello, BotConfig(full_offense=False, strafe_leg_min_s=0.8, strafe_leg_max_s=2.0))   # O2 also closes in (test_o2.py)
     o = _attacked(observations)
     o["zone"]["next_center"] = o["self"]["pos"][:2]   # already at the hold point: nothing else to move for
     a = bot.act(o)
@@ -28,7 +28,7 @@ def test_moves_across_line_of_fire_when_attacked(hello, observations):
 
 
 def test_strafe_legs_reverse_at_irregular_intervals(hello, observations):
-    bot = MechBot(hello)
+    bot = MechBot(hello, BotConfig(full_offense=False, strafe_leg_min_s=0.8, strafe_leg_max_s=2.0))   # O2 legs: test_o2.py
     o = _attacked(observations)
     o["zone"]["next_center"] = o["self"]["pos"][:2]
     signs, flips = [], []

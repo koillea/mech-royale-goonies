@@ -216,7 +216,7 @@ class MechBot:
     # ================================================================== cover
     def _maybe_cover(self, obs, plan: Plan) -> None:
         """Break line of sight when a fight is bad for us: a laser outranges our gun, or we are losing on HP."""
-        if self.wm is None or plan.mode != "FIGHT" or plan.target_kind != "mech":
+        if self.wm is None or plan.mode != "FIGHT" or plan.target_kind != "mech" or self.cfg.full_offense:
             return
         me, tgt, t = obs["self"], plan.target, obs["t"]
         d = dist2(me["pos"], tgt["pos"])
@@ -383,7 +383,7 @@ class MechBot:
         elif plan.retreat or d < lo:
             radial = -0.8
         elif d > hi and plan.mode == "FIGHT":
-            radial = 0.5
+            radial = 1.0 if cfg.full_offense else 0.5
         rx, ry = math.cos(by) * radial, math.sin(by) * radial
         if plan.mode in ("ROTATE", "COVER"):
             # the zone or cover goal comes first; strafe on top of it
@@ -418,6 +418,8 @@ class MechBot:
 
     def _range_band(self, me) -> Tuple[float, float]:
         kinds = {w["kind"] for w in me["weapons"] if w}
+        if self.cfg.full_offense:          # O2: close in; the laser is hitscan, so range it like the other weapon
+            return self.cfg.offense_range_lightning if "lightning" in kinds else self.cfg.offense_range_gun
         if "laser" in kinds:
             return self.cfg.range_laser
         if "lightning" in kinds:

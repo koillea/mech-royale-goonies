@@ -10,10 +10,10 @@ def base_obs(observations):
     return o
 
 
-def plan(hello, o, mem=None):
+def plan(hello, o, mem=None, cfg=None):
     mem = mem or Memory()
     mem.ingest(o)
-    return HeuristicPlanner(BotConfig(), hello["config"]).plan(o, mem)
+    return HeuristicPlanner(cfg or BotConfig(), hello["config"]).plan(o, mem)
 
 
 def test_outside_zone_rotates_with_boost(hello, observations):
@@ -39,7 +39,7 @@ def test_far_peaceful_enemy_is_watched_not_shot(hello, observations):
     me = o["self"]["pos"]
     o["mechs"] = [{"id": 4, "kind": "mech", "pos": [me[0] + 170, me[1], me[2]], "vel": [0, 0, 0], "aim": [0, 0],
                    "hp": 1400, "max_hp": 1400, "weapons": ["gun"]}]
-    p = plan(hello, o)
+    p = plan(hello, o, cfg=BotConfig(full_offense=False))   # O2 engages it (test_o2.py)
     assert p.mode == "HOLD" and p.target is None and abs(p.face_bearing) < 0.05
 
 

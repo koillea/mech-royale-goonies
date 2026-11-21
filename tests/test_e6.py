@@ -2,7 +2,7 @@
 import copy
 import math
 
-from mechbot import MechBot
+from mechbot import BotConfig, MechBot
 
 
 def calm(observations, t=300.0):
@@ -21,7 +21,7 @@ def mech(i, p, dx, dy=0.0, hp=1400):
 
 
 def test_late_game_cube_with_a_mech_watching(hello, observations):
-    bot = MechBot(hello)
+    bot = MechBot(hello, BotConfig(full_offense=False, strafe_leg_min_s=0.8, strafe_leg_max_s=2.0))   # O2 fights it instead (test_o2.py)
     o = calm(observations)                      # after the old 260 s loot limit
     p = o["self"]["pos"]
     o["cubes"] = [{"id": 5001, "pos": [p[0] + 30, p[1], p[2]]}]

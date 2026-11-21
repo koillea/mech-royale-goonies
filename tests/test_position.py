@@ -120,7 +120,7 @@ def test_strafes_but_stays_on_roof_under_fire(hello, observations):
     ("npc", 80, False, False),
 ])
 def test_fight_only_when_needed(hello, observations, kind, dist, hostile, fights):
-    bot = MechBot(hello)
+    bot = MechBot(hello, BotConfig(full_offense=False))   # O2 engages anything in range (test_o2.py)
     o = calm(observations)
     me = o["self"]["pos"]
     o["mechs"] = [{"id": 9 if kind == "mech" else 105, "kind": kind, "pos": [me[0] + dist, me[1], me[2]],

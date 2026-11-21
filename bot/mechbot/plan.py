@@ -133,11 +133,13 @@ class HeuristicPlanner:
                         boost=True, rationale=f"ROTATE {zwhy}" + (f" +{why}" if target else ""))
         if target is not None:
             retreat = (kind == "mech" and hp_frac < cfg.retreat_hp_frac
-                       and target.get("hp", 0) >= me["hp"] and obs["alive"] > 2)
+                       and target.get("hp", 0) >= me["hp"] and obs["alive"] > 2) and not cfg.full_offense
             cube = self._cube_near(obs, mem, cfg.cube_fight_radius) if not retreat else None
             if cube is not None:
                 return Plan("FIGHT", goal=(cube["pos"][0], cube["pos"][1]), target=target, target_kind=kind,
                             collect=True, rationale=f"FIGHT {why} +cube")
+            if cfg.full_offense and kind == "mech" and not perched:
+                goal = (target["pos"][0], target["pos"][1])   # O2: go to it (the route search goes round walls)
             return Plan("FIGHT", goal=goal, target=target, target_kind=kind, retreat=retreat,
                         rationale=f"FIGHT {why}" + (" from roof" if perched else "") + (" retreat" if retreat else ""))
         bearing = mem.recent_damage_bearing(t, 3.0)
@@ -192,6 +194,8 @@ class HeuristicPlanner:
         best, best_score, why = None, -1e18, ""
         endgame = obs["alive"] <= cfg.endgame_alive
         radius = cfg.threat_radius_mech * (cfg.endgame_mult if endgame else 1.0)
+        if cfg.full_offense and mechs:
+            return self._offense_target(obs, mechs, hostile)
         for m in mechs:
             d = dist2(m["pos"], pos)
             frac = m.get("hp", 1400) / max(m.get("max_hp", 1400), 1.0)
@@ -210,6 +214,28 @@ class HeuristicPlanner:
             if (n["id"] in hostile and d < 90) or d < aggro:
                 return n, "npc", f"drone {n['id']} {d:.0f}m"
         return None, "", ""
+
+    def _offense_target(self, obs, mechs, hostile) -> Tuple[Optional[Dict[str, Any]], str, str]:
+        """O2: every visible mech in weapon range is a target. Keep the locked one until it dies or leaves view;
+        switch only to one that is nearly dead. Otherwise lowest HP, then shooting us, then closest."""
+        cfg, pos = self.cfg, obs["self"]["pos"]
+        kinds = {w["kind"] for w in obs["self"]["weapons"] if w}
+        reach = 280.0 if "laser" in kinds else 230.0
+        cands = [m for m in mechs if m["id"] in hostile or dist2(m["pos"], pos) < reach]
+        if not cands:
+            return None, "", ""
+        def frac(m):
+            return m.get("hp", 1400) / max(m.get("max_hp", 1400), 1.0)
+        key = lambda m: (round(m.get("hp", 1400) / 100.0), 0 if m["id"] in hostile else 1, dist2(m["pos"], pos))
+        lock = next((m for m in cands if m["id"] == getattr(self, "lock_id", None)), None)
+        low = [m for m in cands if frac(m) < cfg.offense_switch_frac and m is not lock]
+        if lock is not None and not (low and frac(min(low, key=key)) < frac(lock)):
+            best, why = lock, "lock"
+        else:
+            best = min(low or cands, key=key)
+            why = "nearly dead" if low else "new"
+        self.lock_id = best["id"]
+        return best, "mech", f"{best['id']} {why} {dist2(best['pos'], pos):.0f}m {best.get('hp', 0):.0f}hp"
 
     def _loot(self, obs, npcs, hp_frac, zgoal) -> Optional[Plan]:
         cfg, me = self.cfg, obs["self"]

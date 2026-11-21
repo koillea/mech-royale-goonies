@@ -21,6 +21,14 @@ class BotConfig:
     endgame_alive: int = 3               # with this few mechs left, widen the mech radius by endgame_mult
     endgame_mult: float = 1.5
     provoked_s: float = 4.0              # an attacker stays "hostile" this long after its last hit on us
+    # O2 full offense: the house bots always know where we are, so hiding only lets them group up. Never
+    # retreat or run for cover; engage any visible mech in weapon range; lock on to one target until it dies
+    # (switch only to one that is nearly dead); order: lowest HP, then shooting us, then closest; close to the
+    # weapon's best range and chase out of sight.
+    full_offense: bool = True
+    offense_switch_frac: float = 0.25    # another mech below this HP fraction may take over the lock
+    offense_range_gun: tuple = (30.0, 70.0)        # our gun hits 96 % under 50 m, 81 % at 50-100 m (sim duels)
+    offense_range_lightning: tuple = (10.0, 32.0)
     retreat_hp_frac: float = 0.35        # below this, back away from the fight while still facing it (rear x1.5)
 
     # --- zone (section 9). Hold near the edge of the next circle on our side: shortest moves, fewest fights.
@@ -91,8 +99,8 @@ class BotConfig:
     # enemy leads on our current velocity, so legs of random length (reversals it cannot time) at boost speed
     # (19.5 vs 11.7 m/s, section 7 Movement) make its lead wrong. Boost drains 17/s and energy regenerates
     # 18/s after 0.6 s, so bursts above a reserve keep energy for unsticking and jets.
-    strafe_leg_min_s: float = 0.8
-    strafe_leg_max_s: float = 2.0
+    strafe_leg_min_s: float = 0.35       # O2 keeps D1's duel-winning dodge: was 0.8
+    strafe_leg_max_s: float = 0.9        # O2 (D1): was 2.0
     strafe_wall_probe: float = 6.0       # metres: a wall this close on the strafe side reverses the leg
     strafe_boost_energy: float = 45.0    # boost while strafing only above this energy
     hop_energy: float = 60.0             # occasional jump (vertical 11 m/s) to spoil the enemy's pitch lead
