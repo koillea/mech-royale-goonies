@@ -99,6 +99,7 @@ class MechBot:
         self.spot_t = -1e9
         self.bad_perch: Dict[int, float] = {}
         self.climb_t0: Optional[float] = None
+        self.climb_wait_t0: Optional[float] = None
         self.hold: Optional[Hold] = None
         self.path: Optional[List[Tuple[float, float]]] = None
         self.path_goal: Optional[Tuple[float, float]] = None
@@ -201,6 +202,19 @@ class MechBot:
         if self.climb_t0 is None:
             if me["energy"] < min(need, me["max_energy"] * 0.98):
                 return mx * 0.3, my * 0.3, False, False          # wait at the wall (keep any evasive drift small)
+            # only go up when nobody can shoot us on the way: a mech jetting up a wall is an easy target
+            watchers = [m for m in obs["mechs"] if m["kind"] == "mech"
+                        and math.hypot(m["pos"][0] - pos[0], m["pos"][1] - pos[1]) < self.cfg.climb_safe_range]
+            if watchers:
+                if self.climb_wait_t0 is None:
+                    self.climb_wait_t0 = t
+                if t - self.climb_wait_t0 < self.cfg.climb_wait_max_s:
+                    return mx * 0.3, my * 0.3, False, False      # wait in the wall's shadow
+                self.bad_perch[p.pid] = t + self.cfg.bad_perch_s  # watched too long: pick another spot
+                self.spot_t = -1e9
+                self.climb_wait_t0 = None
+                return mx * 0.3, my * 0.3, False, False
+            self.climb_wait_t0 = None
             self.climb_t0 = t
         rx, ry = self.pos_planner.nearest_roof_cell(p, pos)
         if pos[2] > p.top + 0.4:
