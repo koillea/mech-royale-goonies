@@ -42,6 +42,7 @@ class Hold:
     spot: Vec2                                # the chosen spot itself
     perched: bool = False                     # standing on the chosen roof
     climbing: bool = False                    # at the wall, jetting up (or waiting for energy to)
+    to_roof: bool = False                     # B4: walking to the wall of a roof spot, or climbing it
     why: str = ""
 
 
@@ -124,7 +125,8 @@ class HeuristicPlanner:
         mechs = [m for m in obs["mechs"] if m["kind"] == "mech"]
         npcs = [m for m in obs["mechs"] if m["kind"] == "npc"]
         hostile = mem.hostile_ids(t, cfg.provoked_s)
-        target, kind, why = self._pick_target(obs, mechs, npcs, hostile, perched)
+        to_roof = hold is not None and hold.to_roof and not perched
+        target, kind, why = self._pick_target(obs, mechs, npcs, hostile, perched, to_roof)
 
         if urgent:
             if goal is None and not busy:
@@ -187,7 +189,7 @@ class HeuristicPlanner:
         nc = obs["zone"]["next_center"]
         return (nc[0], nc[1])
 
-    def _pick_target(self, obs, mechs, npcs, hostile, perched: bool = False) -> Tuple[Optional[Dict[str, Any]], str, str]:
+    def _pick_target(self, obs, mechs, npcs, hostile, perched: bool = False, to_roof: bool = False) -> Tuple[Optional[Dict[str, Any]], str, str]:
         cfg, me = self.cfg, obs["self"]
         pos = me["pos"]
         best, best_score, why = None, -1e18, ""
@@ -197,6 +199,8 @@ class HeuristicPlanner:
             # B1: from a roof, shoot any visible mech our weapons reach (laser 280 m, gun 230 m)
             kinds = {w["kind"] for w in me["weapons"] if w}
             radius = max(radius, cfg.sniper_range_laser if "laser" in kinds else cfg.sniper_range_gun)
+        elif to_roof and cfg.roof_first:
+            radius = min(radius, cfg.roof_first_radius)   # B4: get up first; fight on the way only if attacked
         for m in mechs:
             d = dist2(m["pos"], pos)
             frac = m.get("hp", 1400) / max(m.get("max_hp", 1400), 1.0)

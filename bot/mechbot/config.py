@@ -46,6 +46,8 @@ class BotConfig:
     roof_sniper: bool = True             # B1: on a roof, engage any visible mech in weapon range; do not come down
     sniper_range_gun: float = 230.0      # gun range (section 7)
     sniper_range_laser: float = 280.0    # laser range
+    roof_first: bool = True              # B4: on the way to / up a roof, start no fight with a mech that has not hit us
+    roof_first_radius: float = 30.0      # ...unless it is this close
     perch_min_height: float = 12.0       # B1 roof sniper: only roofs the hunters struggle to reach (was 6)
     perch_min_cells: int = 6             # interior roof cells (3 m each) needed to strafe without falling off
     climb_safety: float = 0.8            # use 80 % of the tank's theoretical climb (protocol: ~60 m on 100 energy)

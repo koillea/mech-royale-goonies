@@ -184,8 +184,8 @@ class MechBot:
             return self._hold(obs) if self.spot is not None and self.spot is not sp else None
         lx, ly = self.pos_planner.launch_for(p, pos)
         if self.climb_t0 is None and dist2(pos, (lx, ly)) > 3.5:
-            return Hold(goal=(lx, ly), spot=(sp.x, sp.y), why=f"to wall of {sp.why}")
-        return Hold(goal=None, spot=(sp.x, sp.y), climbing=True, why=f"up {sp.why}")
+            return Hold(goal=(lx, ly), spot=(sp.x, sp.y), to_roof=True, why=f"to wall of {sp.why}")
+        return Hold(goal=None, spot=(sp.x, sp.y), climbing=True, to_roof=True, why=f"up {sp.why}")
 
     def _climb(self, obs, mx: float, my: float, boost: bool, jump: bool):
         """At the wall: wait for enough energy, then jump and jet into the wall until the feet clear the roof edge
