@@ -88,8 +88,8 @@ class BotConfig:
     strafe_leg_max_s: float = 2.0
     strafe_wall_probe: float = 6.0       # metres: a wall this close on the strafe side reverses the leg
     strafe_boost_energy: float = 45.0    # boost while strafing only above this energy
-    hop_energy: float = 60.0             # occasional jump (vertical 11 m/s) to spoil the enemy's pitch lead
-    hop_every_s: float = 2.5
+    hop_energy: float = 30.0             # occasional jump (vertical 11 m/s) to spoil the enemy's pitch lead
+    hop_every_s: float = 1.0              # D6: was 2.5 (and energy 60)
     # range bands (min, max metres) per best weapon held: gun spread is 0.6 deg (about 1 m at 100 m) and
     # range 230; laser reaches 280 and needs no lead; lightning reaches only 45.
     range_gun: tuple = (35.0, 130.0)
