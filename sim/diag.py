@@ -58,7 +58,7 @@ def one(job):
     return {
         "seed": seed, "place": places[me.id], "pts": 16 - places[me.id], "died": died,
         "death_t": me.death_t, "house_dead_before": before, "kills": me.kills, "causes": dict(causes),
-        "mode": me.death_mode, "rationale": me.death_rationale, "by": me.death_by, "weapon": me.death_cause,
+        "mode": me.death_mode, "rationale": getattr(me, "death_rationale", None), "by": me.death_by, "weapon": me.death_cause,
         "dist": getattr(me, "death_dist", None), "where": getattr(me, "death_where", None),
         "engagers": getattr(me, "death_engagers", None), "hp15": getattr(me, "hp_15s_before", None),
         "weapons": getattr(me, "death_weapons", [w["kind"] for w in me.slots if w]),

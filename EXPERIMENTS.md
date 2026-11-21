@@ -85,15 +85,50 @@ flank-biased strafing (`try-flank`), full-circle scanning, drone farming (`v37`)
 
 ---
 
+## Step 2: diagnosis of the champion (simulator, 200 seeds)
+
+Setup: `SIM_AIM_MULT=3.5 SIM_DEFEND_RANGE=60 python3 sim/diag.py --version champ --matches 200`.
+Calibration (E0, 80 seeds per setting): the squad model ranks champion above example at 5 of 6 settings; the
+chosen setting gave champion 3.25 / example 2.02 vs the board's 3.69 / 1.15, so the simulator still overrates the
+example bot by ~0.9. Treat numbers as directional; decide experiments on paired same-seed differences.
+
+Champion here: **4.41 +- 0.29 (sd 4.04)**, average place 11.6, top-3 8 %, alive at the end 6 %, dead in the
+first minute 24 %, median death at 130 s. Max response 14.4 ms, average 0.25 ms.
+
+Where the points come from: house bots dead before us 4.41 per match = our kills 65 %, zone 19 %, drones 16 %.
+
+Causes of death, ranked by share of all points lost (points lost = 15 - points, summed):
+1. **Dying in COVER mode: 53 %** (97 of 187 deaths). The bot breaks off a fight to run for cover and dies on
+   the way: 64 % of all deaths are in the open, killers are mostly within 100 m.
+2. **Dying in FIGHT: 31 %**, mostly against 2+ attackers.
+3. **Dying in ROTATE (moving with the zone): 13 %.**
+Across all modes: **2 or more mechs were hitting us in 68 % of lost points**; 32 % of deaths went from full HP
+to dead within 15 s (focus fire). Zone itself killed us in 5 %, drones 3 %.
+
+Kills we failed to convert: 0.38 per match a house bot dropped below 25 % HP from our hits and did not die by
+our hand. Our mode 1.5 s after the last hit: FIGHT 35 (it got away or out of sight), **COVER 29 (we broke off
+while it was nearly dead)**, ROTATE 8.
+
+Ranked by estimated points lost:
+1. Breaking off to COVER mid-fight (deaths while running + nearly-dead targets let go). The champion's cover
+   rule compares absolute HP (ours < 80 % of the target's) and ignores how close the target is to dying.
+2. Being outnumbered (2+ attackers) in FIGHT; the 90 m engagement trigger can pull in more squad members.
+3. Rotating with the zone through enemies.
+
+Other numbers: laser picked up in 32 % of matches; 2.5 cubes and 1.2 upgrades per match.
+
+---
+
 ## E0 - calibrate the simulator (tool, not bot)
 
 - **Date:** Sat Nov 21
 - **Hypothesis:** with stand-in house bots that hunt the entrant within some radius and only fight each other
   up close, the simulator reproduces the board's ordering: example (1.15) far below champion (3.69).
 - **What changed:** house-bot parameters only (`SIM_HUNT_RADIUS`, `SIM_INFIGHT`).
-- **Result:** pending.
-- **Decision:** the simulator may decide experiments only if, at the chosen setting, champion beats example by
-  more than 2 se over 100+ seeds.
+- **Result (80 seeds each):** aim x1.0: champ 1.93/2.00 vs example 1.70/1.26 (defend 30/60 m); aim x2.0: 2.67/2.45
+  vs 1.84/1.38; aim x3.5: 4.11/3.25 vs 2.33/2.02. Champion beats example by > 2 se in 5 of 6 settings.
+- **Decision:** USE `SIM_AIM_MULT=3.5 SIM_DEFEND_RANGE=60` (closest to both board scores). Known error: example
+  overrated by ~0.9. Decide experiments only on paired same-seed differences (> 2 se).
 
 ## E1 - drone farming (pending, waits for E0)
 
