@@ -141,9 +141,17 @@
       "submitted": "Fri 10:14 PM ET",
       "score": 3.19,
       "wait_ms": 428
+    },
+    {
+      "version": "v3.2 (or v3.2 + merged try-b/c/d)",
+      "commit": "a35616c / 627ff47",
+      "submitted": "Fri 11:23 PM ET",
+      "score": 2.96,
+      "wait_ms": 784,
+      "note": "roof perching off. The submission raced a merge of try-b/c/d/e + sim into main (last merge 11:23:22 ET), so it may have built the bundle. Roof versions 3.52 / 3.69 vs no-roof 3.21 / 2.96: perching likely helps. main restored to v3.1."
     }
   ],
   "plan": [
-    "v3.1 (main): v3 + decision-time fix only: A* stops at a 2.5 ms deadline, perch geometry precomputed, gc.freeze(), and spot re-scoring and route search never share a decision. Play is v3's."
+    "v3.3 (main): v3.1 + no crate shooting (one change)."
   ]
 }
