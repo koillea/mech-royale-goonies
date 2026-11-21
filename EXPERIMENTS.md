@@ -1,5 +1,32 @@
 # Experiments
 
+## Step 1: what the score is made of (read first; every decision must agree with this)
+
+Sources: kit/protocol.md section 4 (Scoring) and the track rules page (practice and final sections).
+
+1. **Our place = 16 - (house bots dead before us). Confirmed.** Placement is the order of death: the last mech
+   alive is 1st, the first to die is 16th, and "Mechs that die on the same tick share a placement" (protocol 4).
+   The 15 house bots are "acting as one squad: they share vision, never fight each other" (track rules). So when we
+   die, our place is the number of mechs still alive including us, and our points (16 - place) equal the number of
+   house bots that died before that tick. If one dies on the same tick as us we share its (better) place.
+2. **How house bots die other than by us:** the zone (they take its damage like anyone), NPC drones (they shoot any
+   mech within 45 m of them, or whoever hit them, 25 a shot), and, in principle, their own mortar splash (50 %
+   self-damage). Never each other. So almost every point we earn is a house bot **we** killed, plus the few the
+   zone and drones take.
+3. **If we are still alive at the end:** the match ends when one mech is left or at 8:00; "If the clock runs out,
+   survivors are ranked by HP" (protocol 4). The last circle closes to radius 0 by about 6:55 at 260 HP/s, so late
+   survivors are ranked by who lasts longest in that; outliving all 15 house bots is a win (15 points).
+4. **When fighting is cheap and when it is deadly.** They "hunt you weakest first (one early, more as you thin them
+   out, all of them late)". Early, one hunter: a 1-v-1 is the cheapest place to earn points, and every point needs
+   a kill. Each kill adds a hunter, so fights get harder as we score. Late, the whole squad hunts: any fight is
+   against many, so late points come from surviving while they die to the zone, not from kills.
+   **Placement is the score, but in practice placement is made of kills:** a bot that never kills scores close to
+   what the zone and drones give it (the kit's example bot: 1.15).
+5. **Practice vs final.** The final is "16-mech free-for-alls" between the qualifiers' bots (expert house bots only
+   fill empty slots). There, other bots do kill each other, so survival earns points on its own. Anything that
+   works only because the house bots never fight each other or because we are the only target is marked
+   **practice-only** below.
+
 Process (team rules, Sat Nov 21): one idea per experiment, written hypothesis first, challenger vs champion on
 the same seeds with enough matches that luck averages out, keep only if clearly better (paired difference
 above 2 standard errors), otherwise revert to the champion. Every experiment must keep max response time well
@@ -12,7 +39,7 @@ beat the previous champion locally.
 
 | | |
 |---|---|
-| Champion | **champ-v3.1** = git `8611ff7` (bot code identical to `bbd6f57`) |
+| Champion | **champ-3.69** (branch; also `champ-v3.1`) = git `8611ff7`, bot code identical to `bbd6f57` |
 | Official score | 3.69 (one 48-match run, Fri 11:09 PM ET); the same play without the speed fix (v3) scored 3.52 |
 | Run-to-run noise | about +-0.5 per 48-match run (spread of placement points per match ~3.5-4.5) |
 

@@ -66,6 +66,15 @@ class Mech:
         self.house = False
         self.death_t: Optional[float] = None
         self.death_cause: Optional[str] = None
+        self.death_by: Optional[str] = None
+        self.death_mode: Optional[str] = None
+        self.dmg_log: List[Tuple[float, Optional[int], str, float, Optional[float]]] = []
+        self.hp_hist: List[Tuple[float, float, float]] = []
+        self.min_hp_by_entrant = 1.0
+        self.entrant_last_hit = -1e9
+        self.upg_t: List[Tuple[float, str]] = []
+        self.laser_t: Optional[float] = None
+        self.mode_hist: List[Tuple[float, Optional[str]]] = []
 
     def _weapon(self, kind: str) -> Dict[str, Any]:
         w = {"kind": kind, "cooldown": 0.0}
@@ -109,6 +118,7 @@ class Match:
         self.shells: List[Dict[str, Any]] = []
         self.next_id = {"crate": 1000, "cube": 5000, "pickup": 8000, "proj": 1}
         self.deaths: List[Tuple[int, int]] = []   # (tick, mech id)
+        self.telemetry = {"drone_kills": 0}
         self._setup_zone()
         spawns = self._spawns(len(entrants))
         for i, ((name, factory), p) in enumerate(zip(entrants, spawns)):
@@ -274,6 +284,12 @@ class Match:
             if not m.house:
                 m.decide_ms.append(ms)
             m.events, m.sounds, m.beams = [], [], []
+            if not m.house:
+                pl = getattr(m.ctrl, "last_plan", None)
+                m.mode_hist.append((self.t, getattr(pl, "mode", None)))
+                m.hp_hist.append((self.t, m.hp, m.energy))
+                if len(m.hp_hist) > 200:
+                    del m.hp_hist[:50]
             self._apply(m, act)
 
     def _apply(self, m: Mech, act):
@@ -323,6 +339,8 @@ class Match:
         w["cooldown"] = max(w.get("cooldown", 0.0), self.rules["loot"]["equip_s"],
                             m.wstats[p["kind"]].get("cooldown", 0.0))
         m.slots[slot] = w
+        if p["kind"] == "laser" and m.laser_t is None:
+            m.laser_t = self.t
         self.pickups.remove(p)
         m.events.append({"type": "took", "id": pid, "kind": p["kind"], "slot": slot})
 
@@ -363,6 +381,7 @@ class Match:
                 m.max_hp += gain
                 m.hp += max(gain, 0)
         m.upgrades.append(uid)
+        m.upg_t.append((round(self.t, 1), uid))
         m.events.append({"type": "upgrade", "id": uid})
         if m.offers:
             m.offer_expires = self.t + self.rules["bot"]["offer_timeout_s"]
@@ -721,6 +740,8 @@ class Match:
             for kind, obj, tp, rad, h in self._targets():
                 if obj is owner or (b["owner"] >= 100 and kind == "npc"):
                     continue
+                if owner is not None and owner.house and kind == "mech" and obj.house:
+                    continue                                   # the squad never fights itself
                 cx, cy = tp[0] - p0[0], tp[1] - p0[1]
                 hd2 = d[0] ** 2 + d[1] ** 2 or 1e-9
                 s = max(0.0, min(1.0, (cx * d[0] + cy * d[1]) / hd2))
@@ -780,6 +801,10 @@ class Match:
                 self._hit(owner, kind, obj, dmg, "mortar", p)
 
     def _hit(self, att: Mech, kind, obj, dmg, weapon, origin):
+        if kind == "mech" and att is not None and att.house and obj.house:
+            return                                             # the squad never fights itself
+        if kind == "npc" and att is not None and not att.house and obj["hp"] - dmg <= 0:
+            self.telemetry["drone_kills"] += 1
         if kind == "mech":
             done = self._damage(obj, dmg, att, weapon, origin)
             att.events.append({"type": "hit", "target": obj.id, "amount": round(done, 1), "weapon": weapon})
@@ -817,6 +842,11 @@ class Match:
         m.hp -= dmg
         m.last_combat = self.t
         by = att.id if att is not None else npc_id
+        src = att.pos if att is not None else origin
+        m.dmg_log.append((self.t, by, weapon, dmg, None if src is None else math.hypot(src[0] - m.pos[0], src[1] - m.pos[1])))
+        if att is not None and not att.house and m.house:
+            m.min_hp_by_entrant = min(m.min_hp_by_entrant, max(m.hp, 0) / m.max_hp)
+            m.entrant_last_hit = self.t
         ev = {"type": "damaged", "amount": round(dmg, 1), "weapon": weapon,
               "bearing": None if bearing is None else round(bearing, 3), "by": by}
         if rear:
@@ -824,6 +854,19 @@ class Match:
         m.events.append(ev)
         if m.hp <= 0:
             m.death_t, m.death_cause = self.t, weapon
+            m.death_by = ("entrant" if not att.house else "house") if att is not None else \
+                ("zone" if weapon == "zone" else ("drone" if weapon == "npc" else weapon))
+            m.death_dist = None if src is None else math.hypot(src[0] - m.pos[0], src[1] - m.pos[1])
+            ctrl_plan = getattr(m.ctrl, "last_plan", None)
+            m.death_mode = getattr(ctrl_plan, "mode", None)
+            m.death_rationale = getattr(ctrl_plan, "rationale", None)
+            k = self.wm.idx(m.pos[0], m.pos[1])
+            m.death_where = "roof" if self.wm.elevated(m.pos[0], m.pos[1], m.pos[2]) else (
+                "cover" if self.wm.cover[k] >= 3 else "open")
+            m.death_engagers = len({b for (tt, b, w, a, dd) in m.dmg_log if self.t - tt <= 5.0 and b is not None and b < 100})
+            m.death_weapons = [w["kind"] for w in m.slots if w]
+            m.house_dead_at_death = sum(1 for o in self.mechs if o.house and not o.alive)
+            m.hp_15s_before = next((h for (tt, h, e) in m.hp_hist if self.t - tt <= 15.0), None)
             self._die(m, att)
         return dmg
 

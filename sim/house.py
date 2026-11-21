@@ -1,35 +1,50 @@
-"""Stand-ins for the scorer's house bots (track page: 4 easy, 4 medium, 4 hard, 3 expert; they share vision and
-hunt the weakest entrant first). Their real code is unknown; these follow that description:
+"""Stand-ins for the scorer's house bots, from the track rules (Sat Nov 21):
 
-- shared vision: a house bot knows every mech that ANY house bot currently sees;
-- target: the weakest visible entrant (non-house mech) within hunt_radius, else the nearest visible mech;
-- move: inside the next circle first; then close to a preferred range of the target, strafing (hard/expert);
-- aim: perfect lead plus Gaussian error by level, firing only after a reaction delay on a new target;
-- loot: walk to a laser or lightning within 40 m while the slot is empty.
+  "15 house bots (4 easy, 4 medium, 4 hard, 3 expert)", "acting as one squad: they share vision, never fight
+  each other", and they "hunt you weakest first (one early, more as you thin them out, all of them late)".
+
+Model (their real code is unknown):
+- squad: house bots never target or damage each other (friendly fire is off in engine.py);
+- shared vision: an entrant is known to the squad while any house bot has seen it in the last memory_s;
+- hunters: the first k of a fixed random order of house bots, k = 1 + (house bots dead), all of them once
+  t >= SIM_ALL_HUNT_T (default 300 s, "late"); hunters chase the weakest known entrant, or its last known
+  position, and fight it at a preferred range;
+- the rest hold a random point inside the next circle and fight an entrant only when it is within
+  SIM_DEFEND_RANGE or has hit them in the last 5 s;
+- skill levels differ by aim error, reaction delay and strafing; all move into the next circle in time.
 """
 from __future__ import annotations
 
 import math
+import os
 import random
 from typing import Any, Dict, List, Optional
 
 LEVELS = {
-    #          aim error deg, reaction s, strafe, preferred range m, hunt radius m
-    "easy":   (3.5, 0.9, False, 50.0, 220.0),
-    "medium": (2.2, 0.6, False, 60.0, 260.0),
-    "hard":   (1.3, 0.4, True, 70.0, 300.0),
-    "expert": (0.7, 0.25, True, 80.0, 340.0),
+    #          aim error deg, reaction s, strafe, preferred range m
+    "easy":   (3.5, 0.9, False, 60.0),
+    "medium": (2.2, 0.6, False, 70.0),
+    "hard":   (1.3, 0.4, True, 80.0),
+    "expert": (0.7, 0.25, True, 90.0),
 }
-import os
-HUNT_ALL = True                                          # house bots converge on a known entrant...
-HUNT_RADIUS = float(os.environ.get("SIM_HUNT_RADIUS", "250"))   # ...if it is within this distance of them
-HUNT_MEMORY = 5.0                                        # seconds an entrant sighting stays shared
-INFIGHT_RANGE = float(os.environ.get("SIM_INFIGHT", "100"))     # house bots fight each other only this close
 FIELD = ["easy"] * 4 + ["medium"] * 4 + ["hard"] * 4 + ["expert"] * 3
+ALL_HUNT_T = float(os.environ.get("SIM_ALL_HUNT_T", "300"))
+DEFEND_RANGE = float(os.environ.get("SIM_DEFEND_RANGE", "60"))
+AIM_MULT = float(os.environ.get("SIM_AIM_MULT", "1.0"))
+MEMORY = 5.0
 
 
 def wrap(a: float) -> float:
     return (a + math.pi) % (2 * math.pi) - math.pi
+
+
+def squad(m) -> Dict[str, Any]:
+    if not hasattr(m, "_squad"):
+        house = [x.id for x in m.mechs if x.house]
+        rnd = random.Random(m.rng.random())
+        rnd.shuffle(house)
+        m._squad = {"order": house, "last_known": {}}
+    return m._squad
 
 
 class HouseBot:
@@ -38,68 +53,91 @@ class HouseBot:
 
     def __init__(self, hello: Dict[str, Any], match: Any, level: str):
         self.match, self.slot, self.level = match, hello["slot"], level
-        self.err, self.react, self.strafe, self.pref, self.hunt = LEVELS[level]
+        self.err, self.react, self.strafe, self.pref = LEVELS[level]
+        self.err *= AIM_MULT
         self.rng = random.Random(hello["seed"])
         self.target_id: Optional[int] = None
         self.target_t = 0.0
         self.side, self.side_t = 1.0, 0.0
+        self.roam: Optional[List[float]] = None
+        self.roam_key = None
+        self.hit_by: Dict[int, float] = {}
         self.name = f"house-{level}"
 
-    def _shared_visible(self) -> List[Any]:
+    def _is_hunter(self) -> bool:
         m = self.match
-        out = []
-        for o in m.mechs:
-            if not o.alive or o.id == self.slot:
-                continue
-            if any(h.alive and h.house and h.seen.get(o.id, -1e9) >= m.t - 0.15 for h in m.mechs):
-                out.append(o)
-        return out
+        sq = squad(m)
+        if m.t >= ALL_HUNT_T:
+            return True
+        dead = sum(1 for x in m.mechs if x.house and not x.alive)
+        alive_order = [i for i in sq["order"] if m.mechs[i].alive]
+        return self.slot in alive_order[: 1 + dead]
 
     def act(self, obs: Dict[str, Any]) -> Dict[str, Any]:
         m, me = self.match, obs["self"]
         pos, t = me["pos"], obs["t"]
+        sq = squad(m)
         act: Dict[str, Any] = {"tick": obs["tick"]}
         if obs.get("offer"):
             act["pick"] = 0
-        vis = self._shared_visible()
-        # entrants any house bot has seen in the last memory_s: shared, hunted from anywhere (weakest first)
-        known = [o for o in m.mechs if o.alive and not o.house and math.dist(o.pos[:2], pos[:2]) < HUNT_RADIUS and
-                 any(h.alive and h.house and h.seen.get(o.id, -1e9) >= m.t - HUNT_MEMORY for h in m.mechs)]
-        if known and HUNT_ALL:
-            tgt = min(known, key=lambda o: o.hp)
+        for e in obs.get("events", []):
+            if e.get("type") == "damaged" and e.get("by") is not None and e["by"] < 100:
+                self.hit_by[e["by"]] = t
+        entrants = [o for o in m.mechs if o.alive and not o.house]
+        known = []
+        for o in entrants:
+            if any(h.alive and h.house and h.seen.get(o.id, -1e9) >= m.t - MEMORY for h in m.mechs):
+                sq["last_known"][o.id] = (list(o.pos), m.t)
+                known.append(o)
+        hunter = self._is_hunter()
+        tgt = None
+        chase_point = None
+        if hunter:
+            if known:
+                tgt = min(known, key=lambda o: o.hp)              # weakest first
+            elif sq["last_known"]:
+                lk = min(sq["last_known"].items(), key=lambda kv: m.mechs[kv[0]].hp if m.mechs[kv[0]].alive else 1e9)
+                if m.mechs[lk[0]].alive:
+                    chase_point = lk[1][0]
         else:
-            entrants = [o for o in vis if not o.house and math.dist(o.pos[:2], pos[:2]) < self.hunt]
-            if entrants:
-                tgt = min(entrants, key=lambda o: o.hp)
-            else:
-                # other house bots only when they are right there
-                near = [o for o in vis if math.dist(o.pos[:2], pos[:2]) < INFIGHT_RANGE]
-                tgt = min(near, key=lambda o: math.dist(o.pos[:2], pos[:2])) if near else None
+            for o in known:
+                d = math.dist(o.pos[:2], pos[:2])
+                if d < DEFEND_RANGE or t - self.hit_by.get(o.id, -1e9) < 5.0:
+                    tgt = o if tgt is None or d < math.dist(tgt.pos[:2], pos[:2]) else tgt
         if tgt is None or tgt.id != self.target_id:
             self.target_id = tgt.id if tgt is not None else None
             self.target_t = t
         z = obs["zone"]
         nc, nr = z["next_center"], z["next_radius"]
-        dz = math.dist(pos[:2], nc)
+        key = (round(nc[0]), round(nc[1]), round(nr))
+        if key != self.roam_key:
+            a, d = self.rng.uniform(-math.pi, math.pi), nr * 0.6 * math.sqrt(self.rng.random())
+            self.roam, self.roam_key = [nc[0] + math.cos(a) * d, nc[1] + math.sin(a) * d], key
         mv = [0.0, 0.0]
-        if dz > nr * 0.7 or not me["in_zone"]:
-            mv = [(nc[0] - pos[0]) / max(dz, 1), (nc[1] - pos[1]) / max(dz, 1)]
+        dest = chase_point if (hunter and tgt is None and chase_point is not None) else self.roam
+        dz = math.dist(pos[:2], nc)
+        if dz > nr * 0.85 or not me["in_zone"]:
+            dest = nc
             act["boost"] = not me["in_zone"] and me["energy"] > 20
+        if dest is not None:
+            dd = math.dist(pos[:2], dest[:2])
+            if dd > 4:
+                mv = [(dest[0] - pos[0]) / dd, (dest[1] - pos[1]) / dd]
         if tgt is not None:
             d = math.dist(tgt.pos[:2], pos[:2])
             by = math.atan2(tgt.pos[1] - pos[1], tgt.pos[0] - pos[0])
             radial = 1.0 if d > self.pref else (-0.6 if d < self.pref * 0.5 else 0.0)
-            mv = [mv[0] + math.cos(by) * radial, mv[1] + math.sin(by) * radial]
+            if not hunter:
+                radial = min(radial, 0.0)                        # defenders do not chase
+            mv = [mv[0] * 0.3 + math.cos(by) * radial, mv[1] * 0.3 + math.sin(by) * radial]
             if self.strafe:
                 if t > self.side_t:
                     self.side, self.side_t = -self.side, t + self.rng.uniform(0.8, 2.0)
                 mv = [mv[0] + math.cos(by + self.side * math.pi / 2) * 0.8,
                       mv[1] + math.sin(by + self.side * math.pi / 2) * 0.8]
-            # aim: lead the target with our gun speed, plus error
             mz = pos[2] + me["stats"].get("muzzle_height", 7.0)
-            sp = 252.0
             tc = [tgt.pos[0], tgt.pos[1], tgt.pos[2] + tgt.height / 2]
-            tt = math.dist([pos[0], pos[1], mz], tc) / sp
+            tt = math.dist([pos[0], pos[1], mz], tc) / 252.0
             px, py = tc[0] + tgt.vel[0] * tt, tc[1] + tgt.vel[1] * tt
             e = math.radians(self.err)
             yaw = math.atan2(py - pos[1], px - pos[0]) + self.rng.gauss(0, e)
@@ -118,12 +156,9 @@ class HouseBot:
                     fire[i] = clear and d < 280 and not (full and on)
                 elif w["kind"] == "lightning":
                     fire[i] = d < 44 and on
-                elif w["kind"] == "mortar":
-                    fire[i] = False
             act["fire"] = fire
         else:
             act["aim"] = [me["aim"][0] + 0.5, 0.0]
-            # loot a better weapon nearby
             if me["weapons"][1] is None:
                 ps = [p for p in obs["pickups"] if p["kind"] in ("laser", "lightning")]
                 if ps:
@@ -133,7 +168,6 @@ class HouseBot:
                         mv = [(p["pos"][0] - pos[0]) / max(d, 1), (p["pos"][1] - pos[1]) / max(d, 1)]
                         if d < 3.5:
                             act["take"] = p["id"]
-        # walls: if blocked ahead, sidestep
         n = math.hypot(*mv)
         if n > 1e-6:
             mv = [mv[0] / n, mv[1] / n]
