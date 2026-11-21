@@ -227,6 +227,19 @@ daemon restart did not repeat).
 | E7 | ne7 | `85b2a8481b793f283804987b5e1ac7cb7108a389` | plating before armor | **3.81** (BB-91CB1D0E): new best, **KEPT -> champ-3.81** (+0.04, inside the noise) |
 | E9 | ne9 | `a78da01b71ac363b41bc4d93162f7eeeff042ee4` | below 70 % and not hit: no new fights until 95 % | **3.79** (BB-859410C2): below 3.81, REVERTED |
 
+## B1-B3 - bold single changes on champ-3.81 (board decides)
+
+Each is ONE behaviour change on champ-3.81 (`85b2a8481b793f283804987b5e1ac7cb7108a389`). Sim runs (30 seeds,
+`SIM_AIM_MULT=3.5 SIM_DEFEND_RANGE=60`) only check that the change does what it says and stays fast; they do not decide.
+
+| id | branch / commit | change | sim behaviour check | Docker check.py max | board |
+|---|---|---|---|---|---|
+| B1 | b1 `7bef6b1fd32e422250c3cc09d5d6f5f63347116c` | roof sniper: perch only on roofs >= 12 m, height weighted x3, engage out to 230 m (gun) / 280 m (laser) from the roof, no cube runs while perched | perches higher and fights from range | 8.3 ms | pending |
+| B2 | b2 `98ba5b53d95f80042b6263cb74e39ebc54388a10` | drone kiting: when a hunter chases and shoots us (> 30 m), run on a route that passes 48-65 m from a known drone so the hunter's line cuts within 40 m of it (inside its 45 m aggro); boost if energy > 30 | 3.63 -> 3.77 (+0.13, se 0.56, noise); full-to-dead in 15 s 38 -> 30 %, median death 110 -> 143 s | 7.1 ms | pending |
+| B3 | b3 `e304ae68b3e52ec801ee67a07314f28b01ae1edf` | chokepoint defence: no roof perches; hold precomputed high-cover cells (>= 10 cover, hold 12 m) and keep the spot while fighting | outnumbered deaths 0.70 -> 0.57, missed kills 0.40 -> 0.27 | 6.5 ms | pending |
+
+Rule: anything below 3.81 on the board is reverted; only changes that each beat 3.81 alone get combined.
+
 ## Board results (all official runs, 48 matches each)
 
 | board run | bot commit | experiment | the one change | sim estimate | board |
