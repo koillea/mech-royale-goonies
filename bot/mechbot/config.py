@@ -73,10 +73,9 @@ class BotConfig:
     stuck_s: float = 0.6
     waypoint_lookahead: int = 4          # cells ahead on the A* path to steer at
     replan_s: float = 2.5
-    path_budget: int = 2500              # cap on A* node expansions per decision...
-    path_ms: float = 2.5                 # ...and on its wall time: the search resumes next decision
-    decide_ms: float = 8.0               # aim to finish every decision by this (budget is 50 ms on 1 CPU; the
-                                         # match container can be several times slower than a laptop)
+    path_budget: int = 1000              # A* node expansions per decision: the real limit, identical on any machine
+    path_ms: float = 15.0                # wall-clock safety net only (1000 nodes take ~4-6 ms on one core)
+    decide_ms: float = 25.0              # never spend past this point of a decision on the search (budget 50 ms)
     # --- evasion: never stand still under fire. A gun bullet takes ~0.4 s to cross 100 m (252 m/s), and the
     # enemy leads on our current velocity, so legs of random length (reversals it cannot time) at boost speed
     # (19.5 vs 11.7 m/s, section 7 Movement) make its lead wrong. Boost drains 17/s and energy regenerates
