@@ -44,6 +44,15 @@ class BotConfig:
     perch_min_cells: int = 6             # interior roof cells (3 m each) needed to strafe without falling off
     climb_safety: float = 0.8            # use 80 % of the tank's theoretical climb (protocol: ~60 m on 100 energy)
     climb_energy_margin: float = 15.0    # wait at the wall until energy covers the climb plus this
+    # --- corner fighting (model._peek_burst): seen on the cast, strong bots peek from cover with bursts and
+    # never fully commit. Only for a fight the planner chose, on the ground, with a corner within pb_radius.
+    peek_burst: bool = True
+    pb_radius: float = 10.0              # cover must be this close: no long runs to cover (v4's likely mistake)
+    pb_burst_s: float = 1.0              # time out per peek (4-5 gun rounds at 0.24 s)
+    pb_duck_s: float = 0.6               # time back in cover between bursts (reload there when low)
+    pb_min_range: float = 20.0           # closer than this, strafe and fight in the open
+    pb_max_range: float = 200.0
+    pb_search_ms: float = 6.0            # time cap on the corner search per decision
     climb_safe_range: float = 150.0      # try-climb: do not start a climb while a visible mech is this close
     climb_wait_max_s: float = 12.0       # ...wait at the wall at most this long, then pick another spot
     climb_timeout_s: float = 7.0         # give up on a roof after this long trying; avoid it for bad_perch_s
