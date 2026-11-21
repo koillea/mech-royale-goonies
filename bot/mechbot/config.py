@@ -43,7 +43,10 @@ class BotConfig:
 
     # --- position (position.py). Height first: roofs see further, shoot down, sit out of drone reach.
     use_perches: bool = True
-    perch_min_height: float = 6.0        # lower roofs give little advantage
+    roof_sniper: bool = True             # B1: on a roof, engage any visible mech in weapon range; do not come down
+    sniper_range_gun: float = 230.0      # gun range (section 7)
+    sniper_range_laser: float = 280.0    # laser range
+    perch_min_height: float = 12.0       # B1 roof sniper: only roofs the hunters struggle to reach (was 6)
     perch_min_cells: int = 6             # interior roof cells (3 m each) needed to strafe without falling off
     climb_safety: float = 0.8            # use 80 % of the tank's theoretical climb (protocol: ~60 m on 100 energy)
     climb_energy_margin: float = 15.0    # wait at the wall until energy covers the climb plus this
@@ -53,7 +56,7 @@ class BotConfig:
     ground_stride: int = 4               # sample ground spots at least every 4 cells (12 m)...
     ground_samples: int = 700            # ...and widen the stride so a big circle stays under this many
     height_cap: float = 30.0
-    w_height: float = 1.2
+    w_height: float = 3.0                # B1: height first (was 1.2)
     w_room: float = 0.3
     w_cover: float = 0.5
     w_center: float = 0.7

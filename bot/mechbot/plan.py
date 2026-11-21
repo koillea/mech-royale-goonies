@@ -124,7 +124,7 @@ class HeuristicPlanner:
         mechs = [m for m in obs["mechs"] if m["kind"] == "mech"]
         npcs = [m for m in obs["mechs"] if m["kind"] == "npc"]
         hostile = mem.hostile_ids(t, cfg.provoked_s)
-        target, kind, why = self._pick_target(obs, mechs, npcs, hostile)
+        target, kind, why = self._pick_target(obs, mechs, npcs, hostile, perched)
 
         if urgent:
             if goal is None and not busy:
@@ -134,7 +134,7 @@ class HeuristicPlanner:
         if target is not None:
             retreat = (kind == "mech" and hp_frac < cfg.retreat_hp_frac
                        and target.get("hp", 0) >= me["hp"] and obs["alive"] > 2)
-            cube = self._cube_near(obs, mem, cfg.cube_fight_radius) if not retreat else None
+            cube = self._cube_near(obs, mem, cfg.cube_fight_radius) if not retreat and not (perched and cfg.roof_sniper) else None
             if cube is not None:
                 return Plan("FIGHT", goal=(cube["pos"][0], cube["pos"][1]), target=target, target_kind=kind,
                             collect=True, rationale=f"FIGHT {why} +cube")
@@ -144,7 +144,8 @@ class HeuristicPlanner:
         if bearing is not None:
             return Plan("ALERT", goal=goal, face_bearing=bearing, rationale="ALERT hit from unseen")
 
-        cube = self._cube_near(obs, mem, cfg.cube_radius) if not (hold is not None and hold.climbing) else None
+        cube = self._cube_near(obs, mem, cfg.cube_radius) \
+            if not (hold is not None and hold.climbing) and not (perched and cfg.roof_sniper) else None   # B1: stay up
         if cube is not None:
             return Plan("LOOT", goal=(cube["pos"][0], cube["pos"][1]),
                         rationale=f"LOOT cube {dist2(cube['pos'], pos):.0f}m (E6)")
@@ -186,12 +187,16 @@ class HeuristicPlanner:
         nc = obs["zone"]["next_center"]
         return (nc[0], nc[1])
 
-    def _pick_target(self, obs, mechs, npcs, hostile) -> Tuple[Optional[Dict[str, Any]], str, str]:
+    def _pick_target(self, obs, mechs, npcs, hostile, perched: bool = False) -> Tuple[Optional[Dict[str, Any]], str, str]:
         cfg, me = self.cfg, obs["self"]
         pos = me["pos"]
         best, best_score, why = None, -1e18, ""
         endgame = obs["alive"] <= cfg.endgame_alive
         radius = cfg.threat_radius_mech * (cfg.endgame_mult if endgame else 1.0)
+        if perched and cfg.roof_sniper:
+            # B1: from a roof, shoot any visible mech our weapons reach (laser 280 m, gun 230 m)
+            kinds = {w["kind"] for w in me["weapons"] if w}
+            radius = max(radius, cfg.sniper_range_laser if "laser" in kinds else cfg.sniper_range_gun)
         for m in mechs:
             d = dist2(m["pos"], pos)
             frac = m.get("hp", 1400) / max(m.get("max_hp", 1400), 1.0)
