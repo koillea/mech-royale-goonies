@@ -33,7 +33,14 @@ def _extract(name: str, rev: str) -> str:
     dst = os.path.join(CACHE, name)
     if not os.path.exists(os.path.join(dst, "bot", "mechbot", "__init__.py")):
         os.makedirs(dst, exist_ok=True)
-        data = subprocess.run(["git", "-C", ROOT, "archive", rev, "bot"], check=True, capture_output=True).stdout
+        data = None
+        for r in (rev, "origin/" + rev):          # a branch may exist only as origin/<name> in a fresh clone
+            p = subprocess.run(["git", "-C", ROOT, "archive", r, "bot"], capture_output=True)
+            if p.returncode == 0:
+                data = p.stdout
+                break
+        if data is None:
+            raise SystemExit(f"cannot find {rev} in git: run `git fetch origin` first")
         tarfile.open(fileobj=io.BytesIO(data)).extractall(dst)
     return dst
 
