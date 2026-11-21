@@ -139,9 +139,6 @@ class HeuristicPlanner:
         if bearing is not None:
             return Plan("ALERT", goal=goal, face_bearing=bearing, rationale="ALERT hit from unseen")
 
-        lp = self._early_laser(obs, mechs, hold, mem)
-        if lp is not None:
-            return lp
         near_enemy = any(dist2(m["pos"], pos) < 120 for m in mechs)
         if t < cfg.loot_until_t and not near_enemy and not busy:
             lp = self._loot(obs, npcs, hp_frac, goal)
@@ -157,35 +154,6 @@ class HeuristicPlanner:
         mode = "PERCH" if perched else ("CLIMB" if hold is not None and hold.climbing else "HOLD")
         return Plan(mode, goal=goal, face_bearing=heard,
                     rationale=f"{mode} {where}" + (" heard" if heard is not None else ""))
-
-    def _early_laser(self, obs, mechs, hold, mem) -> Optional[Plan]:
-        """E8: in the opening, go up to early_laser_radius out of the way for a laser (315 hitscan damage at
-        280 m, no lead). Every top bot whose loadout the cast showed carried autocannon + laser, one by 1:34.
-        Only when no mech has hit us in the last 5 s, the laser is inside the zone, and no visible mech is
-        within early_laser_clear of it. From a roof too; not mid-climb."""
-        cfg, me, t = self.cfg, obs["self"], obs["t"]
-        if t > cfg.early_laser_until_t or (hold is not None and hold.climbing):
-            return None
-        if any(w and w["kind"] == "laser" for w in me["weapons"]):
-            return None
-        if {i for i in mem.hostile_ids(t, 5.0) if i < 100}:
-            return None
-        pos = me["pos"]
-        (cx, cy), cr = zone_now(obs["zone"], t)
-        best, bd = None, cfg.early_laser_radius
-        for p in self.wanted_pickups(obs):
-            if p["kind"] != "laser":
-                continue
-            d = dist2(p["pos"], pos)
-            if d >= bd or math.hypot(p["pos"][0] - cx, p["pos"][1] - cy) > cr - 5.0:
-                continue
-            if any(dist2(m["pos"], p["pos"]) < cfg.early_laser_clear for m in mechs):
-                continue
-            best, bd = p, d
-        if best is None:
-            return None
-        return Plan("LOOT", goal=(best["pos"][0], best["pos"][1]), take=best, boost=bd > 40,
-                    rationale=f"LOOT laser {bd:.0f}m (E8 opening)")
 
     def _center(self, obs) -> Vec2:
         nc = obs["zone"]["next_center"]

@@ -158,8 +158,9 @@ same cores; watched in later runs), e2b 11.6 ms, example 16 ms.
   into fights against 2+ attackers instead of turning into kills. Kills 2.27 -> 2.38. First-minute deaths 30 %
   both. Full-to-dead-in-15-s 31 % -> 32 %. Max response (e2b, Docker sandbox): 11.6 ms.
 - **Decision:** not clearly worse, so per the board rule it was submitted as e2b (carries the clock fix).
-- **Official (Sat Nov 21):** **3.69**, tied with the champion; the simulator said +0.04 +- 0.14. Not lower, so
-  kept: e2b is the base for the next experiments (clock fix is the safer way to run on the scorer).
+- **Official (Sat Nov 21):** **3.69**, tied with the champion; the simulator said +0.04 +- 0.14.
+- **Decision (team, Sat Nov 21): REVERTED on the board** - it did not beat the champion, so the base goes back to
+  champ-3.69. The board decides from now on, not the simulator.
 - **Lesson:** the binding problem is being outnumbered, not the cover rule. Next: E3.
 
 ## E3 - do not provoke / break off when outnumbered
@@ -193,7 +194,9 @@ browser running. Each passes tests, the quality gate and check.py in the scorer'
 e2b response time, pinned, no browser, 100 matches: avg 0.20 ms, max 26.4 ms (under 50, slightly over the 25 aim).
 
 Decision: none is clearly worse, so each goes to the board in turn (E8, E6, E7, E9), each alone on main.
-Official scores: E8 pending, E6 pending, E7 pending, E9 pending. Then the winners are combined.
+Official scores: **E8 (on e2b): 3.50** (main `998454c`; assumed to be the submission reported as 3.50, to be
+confirmed) - worse than champ-3.69 although the simulator said +0.30 +- 0.29. E6, E7, E9 on e2b: not submitted.
+**Decision (team): REVERTED.** The board decides. All four are rebuilt as single changes on champ-3.69 (below).
 
 ## E5 data (first-minute deaths, champion, 200 seeds)
 
