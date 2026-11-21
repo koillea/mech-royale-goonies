@@ -66,8 +66,10 @@ class BotConfig:
     npc_avoid: float = 55.0
 
     # --- upgrades: survival first (armor reduces weapon damage, plating raises max HP, nanites speed regen)
+    # E7: plating first: +15 % max HP (and it heals the difference) is more effective HP than armor's -8 %
+    # damage taken (1.15 vs 1/0.92 = 1.087); top bots seen on the cast stack plating (sonion 3x, 2.3% first).
     upgrade_pref: List[str] = field(default_factory=lambda: [
-        "armor", "plating", "nanites", "gun_rate", "gun_damage", "laser_damage", "laser_charge",
+        "plating", "armor", "nanites", "gun_rate", "gun_damage", "laser_damage", "laser_charge",
         "lightning_efficiency", "sensors", "gyros", "gun_mag", "gun_velocity", "servos", "capacitor",
         "reactor", "jets"])
 
@@ -84,8 +86,8 @@ class BotConfig:
     # enemy leads on our current velocity, so legs of random length (reversals it cannot time) at boost speed
     # (19.5 vs 11.7 m/s, section 7 Movement) make its lead wrong. Boost drains 17/s and energy regenerates
     # 18/s after 0.6 s, so bursts above a reserve keep energy for unsticking and jets.
-    strafe_leg_min_s: float = 0.35       # D1: was 0.8
-    strafe_leg_max_s: float = 0.9        # D1: was 2.0
+    strafe_leg_min_s: float = 0.8
+    strafe_leg_max_s: float = 2.0
     strafe_wall_probe: float = 6.0       # metres: a wall this close on the strafe side reverses the leg
     strafe_boost_energy: float = 45.0    # boost while strafing only above this energy
     hop_energy: float = 60.0             # occasional jump (vertical 11 m/s) to spoil the enemy's pitch lead

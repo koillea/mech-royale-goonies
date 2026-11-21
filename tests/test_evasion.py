@@ -43,8 +43,7 @@ def test_strafe_legs_reverse_at_irregular_intervals(hello, observations):
         signs.append(s)
     legs = [b - a for a, b in zip(flips, flips[1:])]
     assert len(legs) >= 4
-    lo, hi = bot.cfg.strafe_leg_min_s, bot.cfg.strafe_leg_max_s
-    assert min(legs) >= lo - 0.11 and max(legs) <= hi + 0.11       # legs follow the configured lengths
+    assert min(legs) >= 0.7 and max(legs) <= 2.1
     assert max(legs) - min(legs) > 0.2                 # not a fixed rhythm an enemy could time
 
 
