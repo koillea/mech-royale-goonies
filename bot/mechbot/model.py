@@ -6,6 +6,7 @@ Life cycle per decision (10 per match-second, 50 ms budget):
 """
 from __future__ import annotations
 
+import gc
 import math
 import os
 import random
@@ -117,6 +118,8 @@ class MechBot:
         self.cover: Optional[Tuple[float, float]] = None
         self.cover_t = -1e9
         self.cover_from: Optional[int] = None
+        gc.collect()
+        gc.freeze()   # the map's objects never die: keep the collector from rescanning them mid-match
         log(f"{self.name}: init {time.time() - t0:.2f}s map={'ok' if self.wm else 'none'} "
             f"perches={len(self.pos_planner.perches) if self.pos_planner else 0}")
 
@@ -124,6 +127,8 @@ class MechBot:
     def act(self, obs: Dict[str, Any]) -> Dict[str, Any]:
         self._t0 = time.perf_counter()
         self.mem.ingest(obs)
+        if any(e.get("type") == "took" for e in obs.get("events", [])):
+            self.spot_t = -1e9            # new weapon in hand: re-pick the spot and go straight back
         self._update_spot(obs)
         self.hold = self._hold(obs)
         plan = self.planner.plan(obs, self.mem, self.hold)
@@ -151,6 +156,7 @@ class MechBot:
         if new_ring or self.spot is None or (t - self.spot_t > self.cfg.respot_s and self.climb_t0 is None):
             self.spot = self.pos_planner.choose(obs, None if new_ring else self.spot, self.bad_perch)
             self.spot_key, self.spot_t = key, t
+            self._respotted_tick = obs["tick"]   # the route search waits for the next decision
             self.climb_t0 = None if new_ring else self.climb_t0
             self.path = None if new_ring else self.path
 
@@ -431,10 +437,11 @@ class MechBot:
             self.search = PathSearch(wm, wm.nearest_free(pos[0], pos[1]), wm.nearest_free(goal[0], goal[1]))
             self.search_goal, self.plan_t = goal, t
         # spend only what is left of this decision's time on the search (target: under cfg.decide_ms)
-        left = cfg.decide_ms / 1000.0 - (time.perf_counter() - getattr(self, "_t0", time.perf_counter()))
-        budget = int(cfg.path_budget * max(0.0, min(1.0, left / 0.010)))
-        if self.search is not None and not self.search.done and budget > 0:
-            if self.search.step(budget):
+        t0 = getattr(self, "_t0", time.perf_counter())
+        deadline = min(t0 + cfg.decide_ms / 1000.0, time.perf_counter() + cfg.path_ms / 1000.0)
+        busy_tick = getattr(self, "_respotted_tick", None) == obs["tick"]   # spot was re-scored this decision
+        if self.search is not None and not self.search.done and time.perf_counter() < deadline and not busy_tick:
+            if self.search.step(cfg.path_budget, deadline):
                 self.path, self.path_goal, self.path_i = self.search.path, self.search_goal, 0
         if not self.path:
             return (goal[0] - pos[0]) / d, (goal[1] - pos[1]) / d

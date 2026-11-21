@@ -17,9 +17,9 @@ class BotConfig:
     # so keeping HP high (regen needs 5 s without dealing or taking damage, section 7 Health) is the core plan.
     # Fight only when we must: a mech that hit us, a mech inside threat_radius_mech, or a drone inside its own
     # aggro range (npc.aggro_range, 45 m, section 7 NPC drones) or one that hit us. Everything else is watched.
-    threat_radius_mech: float = 90.0
+    threat_radius_mech: float = 40.0     # try-c: was 90; still always shoots back at a mech that hit us
     endgame_alive: int = 3               # with this few mechs left, widen the mech radius by endgame_mult
-    endgame_mult: float = 1.5
+    endgame_mult: float = 2.25           # keeps v3's endgame radius: 40 x 2.25 = 90 m with 3 or fewer left
     provoked_s: float = 4.0              # an attacker stays "hostile" this long after its last hit on us
     retreat_hp_frac: float = 0.35        # below this, back away from the fight while still facing it (rear x1.5)
 
@@ -33,6 +33,7 @@ class BotConfig:
     # --- loot (section 7 Weapon loot, section 10 Cubes)
     loot_radius: float = 55.0            # detour for a weapon or cube no further than this
     loot_until_t: float = 260.0          # stop looting once the circles are small and fights are constant
+    shoot_crates: bool = False           # try-b: gunfire carries 320 m, a breaking crate 220 m (section 8)
     crate_radius: float = 45.0
     crate_min_hp_frac: float = 0.7
     weapon_pref: List[str] = field(default_factory=lambda: ["laser", "lightning", "mortar"])
@@ -48,7 +49,7 @@ class BotConfig:
     bad_perch_s: float = 60.0
     respot_s: float = 8.0                # re-score spots this often (hysteresis keeps us put unless clearly better)
     ground_stride: int = 4               # sample ground spots at least every 4 cells (12 m)...
-    ground_samples: int = 1200           # ...and widen the stride so a big circle stays under this many
+    ground_samples: int = 700            # ...and widen the stride so a big circle stays under this many
     height_cap: float = 30.0
     w_height: float = 1.2
     w_room: float = 0.3
@@ -58,6 +59,12 @@ class BotConfig:
     w_crowd: float = 0.8
     w_npc: float = 0.6
     w_stay: float = 0.25
+
+    # --- try-d: close laser grab (315 hitscan damage at 280 m, no lead): worth a short trip even from our spot,
+    # then straight back (taking it re-picks the spot)
+    laser_grab: bool = True
+    laser_grab_radius: float = 40.0
+    laser_grab_clear: float = 80.0       # skip it if a seen mech is this close to it
 
     # --- NPC drones aggro at 45 m with line of sight (section 7 NPC drones)
     npc_avoid: float = 55.0
@@ -73,8 +80,10 @@ class BotConfig:
     stuck_s: float = 0.6
     waypoint_lookahead: int = 4          # cells ahead on the A* path to steer at
     replan_s: float = 2.5
-    path_budget: int = 2500              # A* node expansions per 10 ms of time left in the decision
-    decide_ms: float = 22.0              # aim to finish every decision by this (budget is 50 ms on 1 CPU)
+    path_budget: int = 2500              # cap on A* node expansions per decision...
+    path_ms: float = 2.5                 # ...and on its wall time: the search resumes next decision
+    decide_ms: float = 8.0               # aim to finish every decision by this (budget is 50 ms on 1 CPU; the
+                                         # match container can be several times slower than a laptop)
     # --- evasion: never stand still under fire. A gun bullet takes ~0.4 s to cross 100 m (252 m/s), and the
     # enemy leads on our current velocity, so legs of random length (reversals it cannot time) at boost speed
     # (19.5 vs 11.7 m/s, section 7 Movement) make its lead wrong. Boost drains 17/s and energy regenerates
