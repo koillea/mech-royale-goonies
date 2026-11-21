@@ -126,6 +126,10 @@ class HeuristicPlanner:
         hostile = mem.hostile_ids(t, cfg.provoked_s)
         target, kind, why = self._pick_target(obs, mechs, npcs, hostile)
 
+        if cfg.opener and t < cfg.opener_s and not urgent and (target is None or (kind == "mech" and target["id"] not in hostile)):
+            op = self._opener(obs, npcs, goal)
+            if op is not None:
+                return op
         if urgent:
             if goal is None and not busy:
                 goal = self._center(obs)
@@ -163,6 +167,50 @@ class HeuristicPlanner:
         mode = "PERCH" if perched else ("CLIMB" if hold is not None and hold.climbing else "HOLD")
         return Plan(mode, goal=goal, face_bearing=heard,
                     rationale=f"{mode} {where}" + (" heard" if heard is not None else ""))
+
+    def _opener(self, obs, npcs, zgoal) -> Optional[Plan]:
+        """C1: the first minute is for cubes. Cheapest next item: a visible cube, a laser, a drone (shot from
+        50-110 m, outside its 45 m aggro), a crate. Only items inside the current circle."""
+        cfg, me, t = self.cfg, obs["self"], obs["t"]
+        pos = me["pos"]
+        (cx, cy), cr = zone_now(obs["zone"], t)
+
+        def inside(p) -> bool:
+            return math.hypot(p[0] - cx, p[1] - cy) < cr - 8.0
+
+        cands: List[Tuple[float, Plan]] = []
+        for c in obs.get("cubes", []):
+            d = dist2(c["pos"], pos)
+            if d < cfg.opener_cube_radius and inside(c["pos"]):
+                cands.append((d - 20, Plan("LOOT", goal=(c["pos"][0], c["pos"][1]), rationale=f"OPENER cube {d:.0f}m")))
+        held = {w["kind"] for w in me["weapons"] if w}
+        if "laser" not in held:
+            for p in obs.get("pickups", []):
+                d = dist2(p["pos"], pos)
+                if p["kind"] == "laser" and d < cfg.opener_laser_radius and inside(p["pos"]):
+                    cands.append((d - 30, Plan("LOOT", goal=(p["pos"][0], p["pos"][1]), take=p,
+                                               rationale=f"OPENER laser {d:.0f}m")))
+        lo, hi = cfg.opener_drone_band
+        for n in npcs:
+            d = dist2(n["pos"], pos)
+            if d < cfg.opener_drone_radius and inside(n["pos"]):
+                ux, uy = (pos[0] - n["pos"][0]) / max(d, 1e-6), (pos[1] - n["pos"][1]) / max(d, 1e-6)
+                if d > hi:
+                    g = (n["pos"][0] + ux * (hi - 15), n["pos"][1] + uy * (hi - 15))
+                elif d < lo:
+                    g = (n["pos"][0] + ux * (lo + 20), n["pos"][1] + uy * (lo + 20))
+                else:
+                    g = None
+                cands.append((d, Plan("FIGHT", goal=g, target=n, target_kind="npc", rationale=f"OPENER drone {d:.0f}m")))
+        for c in obs.get("crates", []):
+            d = dist2(c["pos"], pos)
+            if d < cfg.opener_crate_radius and inside(c["pos"]):
+                g = (c["pos"][0], c["pos"][1]) if d > cfg.opener_crate_shoot else None
+                cands.append((d + 20, Plan("LOOT", goal=g, target=c, target_kind="crate",
+                                           rationale=f"OPENER crate {d:.0f}m")))
+        if not cands:
+            return None
+        return min(cands, key=lambda x: x[0])[1]
 
     def _cube_near(self, obs, mem, radius: float) -> Optional[Dict[str, Any]]:
         """E6: nearest cube within radius that lies inside the current zone, unless 2+ mechs are attacking us.

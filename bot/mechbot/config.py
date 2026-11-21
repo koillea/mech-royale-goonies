@@ -62,14 +62,27 @@ class BotConfig:
     w_npc: float = 0.6
     w_stay: float = 0.25
 
+    # --- C1 cube opener (first opener_s, unless a mech attacks us): shoot drones (2 cubes, 350 HP, only shoot
+    # inside 45 m or when hit) from opener_drone_band, shoot crates (1 cube, 50 % weapon), collect every cube,
+    # take a laser. Real game (user's scripted bot): 5-9 early cubes placed 1st and 4th, none placed 3rd/9th.
+    opener: bool = True
+    opener_s: float = 60.0
+    opener_drone_radius: float = 120.0
+    opener_drone_band: tuple = (50.0, 110.0)
+    opener_crate_radius: float = 150.0
+    opener_crate_shoot: float = 70.0     # walk to within this of a crate, then shoot it
+    opener_cube_radius: float = 120.0
+    opener_laser_radius: float = 120.0
+
     # --- NPC drones aggro at 45 m with line of sight (section 7 NPC drones)
     npc_avoid: float = 55.0
 
     # --- upgrades: survival first (armor reduces weapon damage, plating raises max HP, nanites speed regen)
     # E7: plating first: +15 % max HP (and it heals the difference) is more effective HP than armor's -8 %
     # damage taken (1.15 vs 1/0.92 = 1.087); top bots seen on the cast stack plating (sonion 3x, 2.3% first).
+    # C1: armour/plating first, then gun damage/rate (was nanites before the gun upgrades)
     upgrade_pref: List[str] = field(default_factory=lambda: [
-        "plating", "armor", "nanites", "gun_rate", "gun_damage", "laser_damage", "laser_charge",
+        "plating", "armor", "gun_damage", "gun_rate", "nanites", "laser_damage", "laser_charge",
         "lightning_efficiency", "sensors", "gyros", "gun_mag", "gun_velocity", "servos", "capacitor",
         "reactor", "jets"])
 
