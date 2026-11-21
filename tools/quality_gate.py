@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-STDLIB = set(sys.stdlib_module_names) | {"mechfight", "mechbot"}
+STDLIB = set(sys.stdlib_module_names) | {"mechfight", "mechbot", "m1"}
 SANDBOX = ["docker", "run", "--rm", "-i", "--network", "none", "--cpus", "1", "--memory", "512m", "--read-only",
            "--tmpfs", "/tmp:rw,size=64m", "--user", "65534:65534", "-v", f"{ROOT / 'arena'}:/arena:ro", "goonies-bot"]
 

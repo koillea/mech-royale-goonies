@@ -24,7 +24,6 @@ def observations(stream):
     return [m for m in stream if m.get("type") == "obs"]
 
 
-@pytest.fixture(scope="session")
-def wm():
-    from mechbot.worldmap import WorldMap
-    return WorldMap(os.path.join(ROOT, "arena"))
+
+import sys  # noqa: E402
+sys.path.insert(0, os.path.join(ROOT, "bot"))
