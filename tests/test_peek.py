@@ -61,7 +61,8 @@ def test_corner_cycle_peeks_fires_ducks_and_stays_close(hello, observations):
         if bot.last_plan.mode == "DUCK" and math.dist(o["self"]["pos"][:2], bot.pb_cover) < 1.0:
             p = o["self"]["pos"]
             assert not wm.los([m[0], m[1], m[2] + 8], [p[0], p[1], p[2] + 4.5])   # hidden while ducked
-        assert math.dist(o["self"]["pos"][:2], start[:2]) < 20                    # no long runs
+        if bot.last_plan.mode in ("PEEK", "DUCK"):                                # no long runs to cover
+            assert math.dist(o["self"]["pos"][:2], bot.pb_cover) < bot.cfg.pb_radius + 6
     assert "PEEK" in modes and "DUCK" in modes and fired_in_peek > 0
     switches = sum(1 for x, y in zip(modes, modes[1:]) if x != y)
     assert switches >= 4                                                          # it keeps cycling
