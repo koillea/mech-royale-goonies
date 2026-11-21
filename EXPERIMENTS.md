@@ -162,6 +162,22 @@ same cores; watched in later runs), e2b 11.6 ms, example 16 ms.
   kept: e2b is the base for the next experiments (clock fix is the safer way to run on the scorer).
 - **Lesson:** the binding problem is being outnumbered, not the cover rule. Next: E3.
 
+## E3 - do not provoke / break off when outnumbered
+
+- **Date / commits:** Sat Nov 21; `e3a` (`f017416`) and `e3b` (`283bba3`), both on e2b.
+- **Hypothesis:** 65-69 % of deaths had 2+ attackers and first-minute deaths start with FIGHT; only one house
+  bot hunts us early, so extra attackers are squad members we shot first. Shooting only mechs that hit us (or
+  are within 30 m) should cut outnumbered deaths; E3b adds breaking off to cover when 2+ attack us.
+- **Change:** E3a: fight radius 90 m -> 30 m. E3b: E3a + retreat to cover when 2+ mechs hit us in 5 s or aim
+  at us within 100 m (E2 still finishes a target below 35 %).
+- **Result (200 paired seeds vs e2b):** e2b 3.45, e3a 2.46 (**-0.99 +- 0.22**), e3b 2.71 (**-0.74 +- 0.24**).
+  Kills 2.29 -> 1.52 / 1.51; outnumbered deaths 0.63 -> 0.69 / 0.70 (not reduced); first-minute deaths 29 % ->
+  32 % / 31 %. Response times in this run are not valid (the cast browser shared the CPU).
+- **Decision:** REVERTED (both clearly worse). main stays on e2b.
+- **Lesson:** fighting less costs kills and does not stop the squad from engaging us. Together with the live
+  cast (top bots have ~2x our max armor from cubes and plating, and an early laser), the problem is fragility,
+  not aggression. Next: E6 cubes, E7 plating first, E8 early laser, E9 heal before fighting.
+
 ## E5 data (first-minute deaths, champion, 200 seeds)
 
 30 % of matches. First damage at a median 11 s, death at 35 s. Two attackers in 36 of 61, three in 9. In the
