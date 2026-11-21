@@ -44,6 +44,8 @@ class BotConfig:
     perch_min_cells: int = 6             # interior roof cells (3 m each) needed to strafe without falling off
     climb_safety: float = 0.8            # use 80 % of the tank's theoretical climb (protocol: ~60 m on 100 energy)
     climb_energy_margin: float = 15.0    # wait at the wall until energy covers the climb plus this
+    climb_safe_range: float = 150.0      # try-climb: do not start a climb while a visible mech is this close
+    climb_wait_max_s: float = 12.0       # ...wait at the wall at most this long, then pick another spot
     climb_timeout_s: float = 7.0         # give up on a roof after this long trying; avoid it for bad_perch_s
     bad_perch_s: float = 60.0
     respot_s: float = 8.0                # re-score spots this often (hysteresis keeps us put unless clearly better)
