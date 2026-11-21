@@ -32,6 +32,9 @@ class BotConfig:
     boost_when_late_s: float = 8.0       # boost if we would reach safety with less slack than this
 
     # --- loot (section 7 Weapon loot, section 10 Cubes)
+    early_laser_until_t: float = 90.0    # E8: the opening
+    early_laser_radius: float = 150.0    # E8: go this far out of the way for a laser
+    early_laser_clear: float = 60.0      # E8: ...unless a visible mech is this close to it
     loot_radius: float = 55.0            # detour for a weapon or cube no further than this
     loot_until_t: float = 260.0          # stop looting once the circles are small and fights are constant
     crate_radius: float = 45.0
