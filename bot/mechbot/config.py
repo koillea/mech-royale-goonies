@@ -112,5 +112,7 @@ class BotConfig:
     range_lightning: tuple = (12.0, 38.0)
 
     # --- sensing: sweep the 120 degree view cone so nobody reaches our back unseen (section 8 Vision)
+    fast_scan: bool = True               # turn all the way round while moving too, skipping walls close by
+    scan_wall_m: float = 8.0
     scan_amp: float = 1.4
     scan_rate: float = 0.9

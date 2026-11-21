@@ -160,10 +160,11 @@
     }
   ],
   "plan": [
-    "v3.5 (main): v3.4 + safe climbing (do not start a climb while a visible mech is within 150 m). Next: peek-and-burst at nearby corners; then flank-biased strafing."
+    "v3.6 (main, at Jessica's request all at once): v3.5 (laser grab + safe climbing) + corner peek-and-burst + flank-biased strafing + full-circle scanning while moving. Fallback: tag best-3.69 (v3.1)."
   ],
   "observations": [
     "Cast (Jessica): the top bot strafes, appears to 'crouch' (no crouch action exists: maybe standing still at low cover or moving slowly), flanks bots, and picked up the laser.",
-    "Cast (Jessica): another strong bot peeks from cover with burst fire, never fully commits to a fight, and waits for enemies to be out of position before taking the high ground."
+    "Cast (Jessica): another strong bot peeks from cover with burst fire, never fully commits to a fight, and waits for enemies to be out of position before taking the high ground.",
+    "Cast (Jessica): top-16 bots keep turning their aim to check for threats, and move into the next ring early instead of waiting for the shrink (ours already moves early)."
   ]
 }

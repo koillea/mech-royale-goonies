@@ -313,7 +313,8 @@ class MechBot:
             return
         tc = [tgt["pos"][0], tgt["pos"][1], tgt["pos"][2] + 4.5]
         eye = [tgt["pos"][0], tgt["pos"][1], tgt["pos"][2] + self.mech_rules.get("eye_height", 8.0)]
-        moved = self.pb_from is None or dist2(self.pb_from, tgt["pos"]) > 8.0
+        moved = self.pb_from is None or dist2(self.pb_from, tgt["pos"]) > 8.0 \
+            or (self.pb_cover is not None and dist2(pos, self.pb_cover) > cfg.pb_radius + 3.0)   # we walked away
         if self.pb_target != tgt["id"] or moved or self.pb_cover is None and t - self.pb_found_t > 1.0:
             self.pb_cover, self.pb_peek = self._find_corner(me, eye, tc)
             self.pb_target, self.pb_from, self.pb_found_t = tgt["id"], list(tgt["pos"]), t
@@ -587,6 +588,8 @@ class MechBot:
         if tgt is None:
             if plan.face_bearing is not None:
                 yaw = plan.face_bearing
+            elif cfg.fast_scan:
+                yaw = self._scan_yaw(pos, cur_yaw)
             elif math.hypot(*move) > 0.1:
                 yaw = math.atan2(move[1], move[0]) + cfg.scan_amp * math.sin(t * cfg.scan_rate)
             else:
@@ -675,6 +678,18 @@ class MechBot:
         return (yaw, pitch), fire, reload_
 
     # ================================================================== offers + pickups
+    def _scan_yaw(self, pos, cur_yaw: float) -> float:
+        """Keep the torso turning all the way round, moving or not (seen on the cast: top bots constantly check
+        for threats). The 120 degree view cone sweeps a full turn in about 1.6 s at turn_rate 4 rad/s. On the
+        ground, hurry past directions where a wall stands within scan_wall_m: nothing can come from there."""
+        step = 0.9
+        if self.wm is not None and not self.wm.elevated(pos[0], pos[1], pos[2]):
+            a = cur_yaw + 0.6
+            d = self.cfg.scan_wall_m
+            if not self.wm.free(pos[0] + math.cos(a) * d, pos[1] + math.sin(a) * d):
+                step = 1.8
+        return cur_yaw + step
+
     def _offer(self, obs, act) -> None:
         off = obs.get("offer")
         if not off:
