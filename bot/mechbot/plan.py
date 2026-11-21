@@ -32,6 +32,7 @@ class Plan:
     face_bearing: Optional[float] = None
     take: Optional[Dict[str, Any]] = None     # weapon pickup we want
     rationale: str = ""
+    collect: bool = False                     # E6: the goal is a cube to grab mid-fight (strafe less)
 
 
 @dataclass
@@ -133,12 +134,20 @@ class HeuristicPlanner:
         if target is not None:
             retreat = (kind == "mech" and hp_frac < cfg.retreat_hp_frac
                        and target.get("hp", 0) >= me["hp"] and obs["alive"] > 2)
+            cube = self._cube_near(obs, mem, cfg.cube_fight_radius) if not retreat else None
+            if cube is not None:
+                return Plan("FIGHT", goal=(cube["pos"][0], cube["pos"][1]), target=target, target_kind=kind,
+                            collect=True, rationale=f"FIGHT {why} +cube")
             return Plan("FIGHT", goal=goal, target=target, target_kind=kind, retreat=retreat,
                         rationale=f"FIGHT {why}" + (" from roof" if perched else "") + (" retreat" if retreat else ""))
         bearing = mem.recent_damage_bearing(t, 3.0)
         if bearing is not None:
             return Plan("ALERT", goal=goal, face_bearing=bearing, rationale="ALERT hit from unseen")
 
+        cube = self._cube_near(obs, mem, cfg.cube_radius) if not (hold is not None and hold.climbing) else None
+        if cube is not None:
+            return Plan("LOOT", goal=(cube["pos"][0], cube["pos"][1]),
+                        rationale=f"LOOT cube {dist2(cube['pos'], pos):.0f}m (E6)")
         near_enemy = any(dist2(m["pos"], pos) < 120 for m in mechs)
         if t < cfg.loot_until_t and not near_enemy and not busy:
             lp = self._loot(obs, npcs, hp_frac, goal)
@@ -154,6 +163,24 @@ class HeuristicPlanner:
         mode = "PERCH" if perched else ("CLIMB" if hold is not None and hold.climbing else "HOLD")
         return Plan(mode, goal=goal, face_bearing=heard,
                     rationale=f"{mode} {where}" + (" heard" if heard is not None else ""))
+
+    def _cube_near(self, obs, mem, radius: float) -> Optional[Dict[str, Any]]:
+        """E6: nearest cube within radius that lies inside the current zone, unless 2+ mechs are attacking us.
+        Cubes are +4 % max HP (healing the difference) and +4 % damage each, and 1/3/6/10 cubes unlock upgrades;
+        a killed mech drops all its cubes plus 2. Top bots on the cast carried 26 cubes and 2x our max armor."""
+        cfg, me, t = self.cfg, obs["self"], obs["t"]
+        if not cfg.cube_hunt or not obs.get("cubes"):
+            return None
+        if len({i for i in mem.hostile_ids(t, 5.0) if i < 100}) >= 2:
+            return None
+        pos = me["pos"]
+        (cx, cy), cr = zone_now(obs["zone"], t)
+        best, bd = None, radius
+        for c in obs["cubes"]:
+            d = dist2(c["pos"], pos)
+            if d < bd and math.hypot(c["pos"][0] - cx, c["pos"][1] - cy) < cr - 5.0:
+                best, bd = c, d
+        return best
 
     def _center(self, obs) -> Vec2:
         nc = obs["zone"]["next_center"]

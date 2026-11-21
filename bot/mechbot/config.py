@@ -32,6 +32,9 @@ class BotConfig:
     boost_when_late_s: float = 8.0       # boost if we would reach safety with less slack than this
 
     # --- loot (section 7 Weapon loot, section 10 Cubes)
+    cube_hunt: bool = True               # E6: cubes all match, from roofs too, with mechs near (not 2+ attackers)
+    cube_radius: float = 60.0            # E6: out of a fight, go for cubes this close (inside the zone)
+    cube_fight_radius: float = 25.0      # E6: mid-fight with one attacker, step onto cubes this close
     loot_radius: float = 55.0            # detour for a weapon or cube no further than this
     loot_until_t: float = 260.0          # stop looting once the circles are small and fights are constant
     crate_radius: float = 45.0
