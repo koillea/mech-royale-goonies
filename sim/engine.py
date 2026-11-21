@@ -86,6 +86,8 @@ class Mech:
         self.hits: Dict[str, int] = {}
         self.dmg_dealt = 0.0
         self.dmg_taken = 0.0
+        self.shot_d: List[float] = []     # distance to the nearest enemy at each gun shot
+        self.hit_d: List[float] = []      # distance at each gun hit on a mech
 
     def _weapon(self, kind: str) -> Dict[str, Any]:
         w = {"kind": kind, "cooldown": 0.0}
@@ -613,6 +615,10 @@ class Match:
                                          "dmg": ws["damage"] * m.dmg_mult(self.rules), "ttl": ws["range"] / ws["speed"],
                                          "weapon": "gun", "r": self.rules["projectile"]["gun_radius"]})
                     m.shots["gun"] = m.shots.get("gun", 0) + 1
+                    others = [math.hypot(o.pos[0] - m.pos[0], o.pos[1] - m.pos[1]) for o in self.mechs
+                              if o.alive and o is not m and not (o.house and m.house)]
+                    if others:
+                        m.shot_d.append(min(others))
                     w["ammo"] -= 1
                     w["cooldown"] = ws["cooldown"]
                     if w["ammo"] <= 0:
@@ -828,6 +834,8 @@ class Match:
         if kind == "mech":
             done = self._damage(obj, dmg, att, weapon, origin)
             att.hits[weapon] = att.hits.get(weapon, 0) + 1
+            if weapon == "gun":
+                att.hit_d.append(math.hypot(obj.pos[0] - att.pos[0], obj.pos[1] - att.pos[1]))
             att.dmg_dealt += done
             att.events.append({"type": "hit", "target": obj.id, "amount": round(done, 1), "weapon": weapon})
             att.last_combat = self.t
