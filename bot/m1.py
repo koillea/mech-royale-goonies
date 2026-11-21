@@ -8,7 +8,7 @@ next circle sweeping the torso. Always: face the last damage bearing when there 
 import math
 import random
 
-FIGHT_RANGE = 85.0        # M2: 120
+FIGHT_RANGE = 120.0       # M2 (was 85)
 FARM_UNTIL = 1e9          # M3: 90.0
 UPGRADE_PREF = ["armor", "plating", "nanites", "gun_damage", "gun_rate"]
 
