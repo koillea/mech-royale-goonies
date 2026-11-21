@@ -48,7 +48,7 @@ class BotConfig:
     bad_perch_s: float = 60.0
     respot_s: float = 8.0                # re-score spots this often (hysteresis keeps us put unless clearly better)
     ground_stride: int = 4               # sample ground spots at least every 4 cells (12 m)...
-    ground_samples: int = 1200           # ...and widen the stride so a big circle stays under this many
+    ground_samples: int = 700            # ...and widen the stride so a big circle stays under this many
     height_cap: float = 30.0
     w_height: float = 1.2
     w_room: float = 0.3
@@ -73,8 +73,10 @@ class BotConfig:
     stuck_s: float = 0.6
     waypoint_lookahead: int = 4          # cells ahead on the A* path to steer at
     replan_s: float = 2.5
-    path_budget: int = 2500              # A* node expansions per 10 ms of time left in the decision
-    decide_ms: float = 22.0              # aim to finish every decision by this (budget is 50 ms on 1 CPU)
+    path_budget: int = 2500              # cap on A* node expansions per decision...
+    path_ms: float = 2.5                 # ...and on its wall time: the search resumes next decision
+    decide_ms: float = 8.0               # aim to finish every decision by this (budget is 50 ms on 1 CPU; the
+                                         # match container can be several times slower than a laptop)
     # --- evasion: never stand still under fire. A gun bullet takes ~0.4 s to cross 100 m (252 m/s), and the
     # enemy leads on our current velocity, so legs of random length (reversals it cannot time) at boost speed
     # (19.5 vs 11.7 m/s, section 7 Movement) make its lead wrong. Boost drains 17/s and energy regenerates
