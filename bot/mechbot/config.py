@@ -17,7 +17,7 @@ class BotConfig:
     # so keeping HP high (regen needs 5 s without dealing or taking damage, section 7 Health) is the core plan.
     # Fight only when we must: a mech that hit us, a mech inside threat_radius_mech, or a drone inside its own
     # aggro range (npc.aggro_range, 45 m, section 7 NPC drones) or one that hit us. Everything else is watched.
-    threat_radius_mech: float = 90.0
+    threat_radius_mech: float = 30.0     # E3a: do not provoke: shoot only mechs that hit us, or this close
     endgame_alive: int = 3               # with this few mechs left, widen the mech radius by endgame_mult
     endgame_mult: float = 1.5
     provoked_s: float = 4.0              # an attacker stays "hostile" this long after its last hit on us

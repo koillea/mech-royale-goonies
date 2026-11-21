@@ -114,7 +114,8 @@ def test_strafes_but_stays_on_roof_under_fire(hello, observations):
 
 @pytest.mark.parametrize("kind,dist,hostile,fights", [
     ("mech", 150, False, False),     # far and not shooting at us: watch, do not shoot
-    ("mech", 60, False, True),       # inside the threat radius
+    ("mech", 60, False, False),      # E3a: not provoked, not within 30 m: do not shoot
+    ("mech", 25, False, True),       # E3a: inside 30 m
     ("mech", 150, True, True),       # it shot us
     ("npc", 40, False, True),        # a drone inside its aggro range will shoot anyway
     ("npc", 80, False, False),
