@@ -234,11 +234,17 @@ Each is ONE behaviour change on champ-3.81 (`85b2a8481b793f283804987b5e1ac7cb710
 
 | id | branch / commit | change | sim behaviour check | Docker check.py max | board |
 |---|---|---|---|---|---|
-| B1 | b1 `7bef6b1fd32e422250c3cc09d5d6f5f63347116c` | roof sniper: perch only on roofs >= 12 m, height weighted x3, engage out to 230 m (gun) / 280 m (laser) from the roof, no cube runs while perched | checked by tests/test_b1.py (roof-height choice, wider target radius when perched); no sim metrics logged | 8.3 ms | pending |
-| B2 | b2 `98ba5b53d95f80042b6263cb74e39ebc54388a10` | drone kiting: when a hunter chases and shoots us (> 30 m), run on a route that passes 48-65 m from a known drone so the hunter's line cuts within 40 m of it (inside its 45 m aggro); boost if energy > 30 | 3.63 -> 3.77 (+0.13, se 0.56, noise); full-to-dead in 15 s 38 -> 30 %, median death 110 -> 143 s | 7.1 ms | pending |
-| B3 | b3 `e304ae68b3e52ec801ee67a07314f28b01ae1edf` | chokepoint defence: no roof perches; hold precomputed high-cover cells (>= 10 cover, hold 12 m) and keep the spot while fighting | outnumbered deaths 0.70 -> 0.57, missed kills 0.40 -> 0.27 | 6.5 ms | pending |
+| B1 | b1 `7bef6b1fd32e422250c3cc09d5d6f5f63347116c` | roof sniper: perch only on roofs >= 12 m, height weighted x3, engage out to 230 m (gun) / 280 m (laser) from the roof, no cube runs while perched | checked by tests/test_b1.py (roof-height choice, wider target radius when perched); no sim metrics logged | 8.3 ms | **3.88**: new best (+0.07, inside the ~0.5 noise), **KEPT -> champ-3.88** |
+| B2 | b2 `98ba5b53d95f80042b6263cb74e39ebc54388a10` | drone kiting: when a hunter chases and shoots us (> 30 m), run on a route that passes 48-65 m from a known drone so the hunter's line cuts within 40 m of it (inside its 45 m aggro); boost if energy > 30 | 3.63 -> 3.77 (+0.13, se 0.56, noise); full-to-dead in 15 s 38 -> 30 %, median death 110 -> 143 s | 7.1 ms | **3.73**: below 3.81, REVERTED |
+| B3 | b3 `e304ae68b3e52ec801ee67a07314f28b01ae1edf` | chokepoint defence: no roof perches; hold precomputed high-cover cells (>= 10 cover, hold 12 m) and keep the spot while fighting | outnumbered deaths 0.70 -> 0.57, missed kills 0.40 -> 0.27 | 6.5 ms | **3.79**: below 3.81, REVERTED |
 
-Rule: anything below 3.81 on the board is reverted; only changes that each beat 3.81 alone get combined.
+Only B1 beat the champion, so nothing to combine. Next bold step goes on champ-3.88 (branch `champ-3.88` = B1).
+
+| id | branch / commit | change | sim behaviour check | Docker check.py max | board |
+|---|---|---|---|---|---|
+| B4 | b4 `a84f4d82f8ad92fdd8c7531b0ccd5b71bb6dffe2` | roof first: while walking to a roof's wall or climbing it, start no fight with a mech that has not hit us unless it is within 30 m (was 90 m) | 3.63 -> 3.17 (-0.47, se 0.43, noise); kills 2.53 -> 2.27, COVER deaths 0.43 -> 0.63 | 10.4 ms | pending |
+
+Rule: anything below the champion on the board is reverted; only changes that each beat 3.81 alone get combined.
 
 ## Board results (all official runs, 48 matches each)
 
