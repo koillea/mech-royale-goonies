@@ -210,7 +210,7 @@ class HeuristicPlanner:
             d = dist2(dr["pos"], pos)
             if d < cfg.drop_radius and dr.get("holder") in (None, me["id"]) and dr["lands_in"] < d / 11.0 + 6:
                 cands.append((d - 30, Plan("LOOT", goal=(dr["pos"][0], dr["pos"][1]), rationale=f"LOOT drop {d:.0f}m")))
-        if hp_frac >= cfg.crate_min_hp_frac:
+        if cfg.shoot_crates and hp_frac >= cfg.crate_min_hp_frac:
             for c in obs["crates"]:
                 d = dist2(c["pos"], pos)
                 if d < cfg.crate_radius and safe(c["pos"]):
