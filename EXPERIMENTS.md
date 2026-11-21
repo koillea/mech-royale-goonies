@@ -140,6 +140,12 @@ Other numbers: laser picked up in 32 % of matches; 2.5 cubes and 1.2 upgrades pe
   only as a 15 ms safety net, so the real 1-CPU scorer plans like the simulator. No other change.
 - Champion with the fixes, 200 seeds: **3.38 +- 0.23** (sd 3.19); real 3.69.
 
+## Recalibration after the fixes (100 seeds, workers pinned to one CPU)
+
+base 3.36 (real 3.69), e2b 3.65 (real 3.69), example 2.11 (real 1.15): example is clearly below base
+(-1.25 +- 0.41) but still overrated by ~1 point. Max response: base 43 ms once (concurrent Docker check on the
+same cores; watched in later runs), e2b 11.6 ms, example 16 ms.
+
 ## E2 - never break off from a nearly dead target
 
 - **Date / commit:** Sat Nov 21, `e2` (on the champion) and `e2b` = base + E2 (`23980ee`)
@@ -151,8 +157,9 @@ Other numbers: laser picked up in 32 % of matches; 2.5 cubes and 1.2 upgrades pe
   COVER 0.56 -> 0.40 per match, but outnumbered deaths 0.65 -> 0.69 and missed kills 0.39 -> 0.40: the deaths moved
   into fights against 2+ attackers instead of turning into kills. Kills 2.27 -> 2.38. First-minute deaths 30 %
   both. Full-to-dead-in-15-s 31 % -> 32 %. Max response (e2b, Docker sandbox): 11.6 ms.
-- **Decision:** not clearly worse, so per the board rule it is submitted as e2b (carries the clock fix). Official
-  score: pending. If below 3.69, revert main to champ-3.69.
+- **Decision:** not clearly worse, so per the board rule it was submitted as e2b (carries the clock fix).
+- **Official (Sat Nov 21):** **3.69**, tied with the champion; the simulator said +0.04 +- 0.14. Not lower, so
+  kept: e2b is the base for the next experiments (clock fix is the safer way to run on the scorer).
 - **Lesson:** the binding problem is being outnumbered, not the cover rule. Next: E3.
 
 ## E5 data (first-minute deaths, champion, 200 seeds)
