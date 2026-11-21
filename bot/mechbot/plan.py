@@ -139,9 +139,6 @@ class HeuristicPlanner:
         if bearing is not None:
             return Plan("ALERT", goal=goal, face_bearing=bearing, rationale="ALERT hit from unseen")
 
-        lp = self._laser_grab(obs, mechs, npcs, hold, mem)
-        if lp is not None:
-            return lp
         near_enemy = any(dist2(m["pos"], pos) < 120 for m in mechs)
         if t < cfg.loot_until_t and not near_enemy and not busy:
             lp = self._loot(obs, npcs, hp_frac, goal)
@@ -167,17 +164,17 @@ class HeuristicPlanner:
         pos = me["pos"]
         best, best_score, why = None, -1e18, ""
         endgame = obs["alive"] <= cfg.endgame_alive
-        radius = cfg.endgame_radius if endgame else cfg.threat_radius_mech
+        radius = cfg.threat_radius_mech * (cfg.endgame_mult if endgame else 1.0)
         for m in mechs:
             d = dist2(m["pos"], pos)
             frac = m.get("hp", 1400) / max(m.get("max_hp", 1400), 1.0)
             is_hostile = m["id"] in hostile
             if not (is_hostile or d < radius):
-                continue   # not necessary: avoid it instead (shots give us away and reset our regen)
+                continue   # not a threat: watch it, do not shoot (shots give us away and reset our regen)
             score = (1000 if is_hostile else 0) - d - 400 * frac
             if score > best_score:
                 best, best_score = m, score
-                why = f"{m['id']} {'hostile' if is_hostile else 'close'} {d:.0f}m"
+                why = f"{m['id']} {'hostile' if is_hostile else 'inside'} {d:.0f}m"
         if best is not None:
             return best, "mech", why
         aggro = self.rules.get("npc", {}).get("aggro_range", 45.0)
@@ -213,7 +210,7 @@ class HeuristicPlanner:
             d = dist2(dr["pos"], pos)
             if d < cfg.drop_radius and dr.get("holder") in (None, me["id"]) and dr["lands_in"] < d / 11.0 + 6:
                 cands.append((d - 30, Plan("LOOT", goal=(dr["pos"][0], dr["pos"][1]), rationale=f"LOOT drop {d:.0f}m")))
-        if cfg.shoot_crates and hp_frac >= cfg.crate_min_hp_frac:
+        if hp_frac >= cfg.crate_min_hp_frac:
             for c in obs["crates"]:
                 d = dist2(c["pos"], pos)
                 if d < cfg.crate_radius and safe(c["pos"]):
@@ -222,30 +219,6 @@ class HeuristicPlanner:
         if not cands:
             return None
         return min(cands, key=lambda x: x[0])[1]
-
-    def _laser_grab(self, obs, mechs, npcs, hold, mem) -> Optional[Plan]:
-        """A laser lying close by is worth a short trip even from our spot (315 hitscan damage at 280 m, no lead):
-        go, take it, and the position planner sends us straight back (model re-picks the spot after a take)."""
-        cfg, me, t = self.cfg, obs["self"], obs["t"]
-        if not cfg.laser_grab or (hold is not None and hold.climbing):
-            return None
-        pos = me["pos"]
-        heard = mem.intel_points(t) if hasattr(mem, "intel_points") else []
-        for p in self.wanted_pickups(obs):
-            if p["kind"] != "laser":
-                continue
-            d = dist2(p["pos"], pos)
-            if d > cfg.laser_grab_radius:
-                continue
-            if any(dist2(m["pos"], p["pos"]) < cfg.laser_grab_clear for m in mechs):
-                continue                                   # someone is right there: not worth a fight
-            if any(dist2(h, p["pos"]) < cfg.laser_grab_clear * 0.6 for h in heard):
-                continue
-            if any(dist2(n["pos"], p["pos"]) < cfg.npc_avoid for n in npcs):
-                continue
-            return Plan("LOOT", goal=(p["pos"][0], p["pos"][1]), take=p, boost=d > 20,
-                        rationale=f"LOOT laser {d:.0f}m then back")
-        return None
 
     def wanted_pickups(self, obs) -> List[Dict[str, Any]]:
         """Pickups that improve our loadout: fill an empty slot, or replace a worse slot-1 weapon."""

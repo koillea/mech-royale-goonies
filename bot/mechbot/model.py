@@ -6,7 +6,6 @@ Life cycle per decision (10 per match-second, 50 ms budget):
 """
 from __future__ import annotations
 
-import gc
 import math
 import os
 import random
@@ -16,7 +15,6 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from .ballistics import aim_at, lead, mortar_pitch, mortar_time, wrap, yaw_to
 from .config import BotConfig
-from .intel import Intel
 from .plan import HeuristicPlanner, Hold, Plan, dist2
 from .position import PositionPlanner, Spot
 from .worldmap import PathSearch, WorldMap
@@ -54,13 +52,6 @@ class Memory:
                 self.sounds.append((t - s.get("age", 0), s["bearing"], s["dist"]))
         self.sounds = [s for s in self.sounds if t - s[0] < 3.0][-20:]
 
-    intel = None   # set by MechBot: the Intel instance, so the planner can ask where enemies are
-
-    def intel_points(self, t: float) -> List[List[float]]:
-        if self.intel is None:
-            return []
-        return [th.pos for th in self.intel.active(t, [0.0, 0.0, 0.0], 0.35, 1e9)]
-
     def hostile_ids(self, t: float, window: float) -> set:
         return {k for k, v in self.attackers.items() if t - v < window}
 
@@ -84,8 +75,6 @@ class MechBot:
         self.rng = random.Random(hello.get("seed", 0))
         self.planner = HeuristicPlanner(self.cfg, self.rules)
         self.mem = Memory()
-        self.intel = Intel(self.cfg, self.rules)
-        self.mem.intel = self.intel
         self.wm: Optional[WorldMap] = None
         here = os.path.dirname(os.path.abspath(__file__))
         dirs = [hello.get("map", {}).get("dir"), "/arena", os.path.join(here, "..", "arena"), os.path.join(here, "..", "..", "arena")]
@@ -108,7 +97,6 @@ class MechBot:
         self.spot_key: Optional[Tuple[float, float, float]] = None
         self.spot_t = -1e9
         self.bad_perch: Dict[int, float] = {}
-        self.avoid_until = -1e9
         self.climb_t0: Optional[float] = None
         self.hold: Optional[Hold] = None
         self.path: Optional[List[Tuple[float, float]]] = None
@@ -129,8 +117,6 @@ class MechBot:
         self.cover: Optional[Tuple[float, float]] = None
         self.cover_t = -1e9
         self.cover_from: Optional[int] = None
-        gc.collect()
-        gc.freeze()   # the map's objects never die: keep the collector from rescanning them mid-match
         log(f"{self.name}: init {time.time() - t0:.2f}s map={'ok' if self.wm else 'none'} "
             f"perches={len(self.pos_planner.perches) if self.pos_planner else 0}")
 
@@ -138,9 +124,6 @@ class MechBot:
     def act(self, obs: Dict[str, Any]) -> Dict[str, Any]:
         self._t0 = time.perf_counter()
         self.mem.ingest(obs)
-        self.intel.update(obs)
-        if any(e.get("type") == "took" for e in obs.get("events", [])):
-            self.spot_t = -1e9            # new weapon in hand: re-pick the spot and go straight back
         self._update_spot(obs)
         self.hold = self._hold(obs)
         plan = self.planner.plan(obs, self.mem, self.hold)
@@ -155,8 +138,7 @@ class MechBot:
             act["reload"] = True
         self._offer(obs, act)
         self._take(obs, act)
-        label = plan.rationale + (" (avoiding)" if obs["t"] < self.avoid_until else "")
-        act["debug"] = {"label": label[:80]}
+        act["debug"] = {"label": plan.rationale[:80]}
         return act
 
     # ================================================================== position
@@ -166,20 +148,8 @@ class MechBot:
         z, t = obs["zone"], obs["t"]
         key = (round(z["next_center"][0], 1), round(z["next_center"][1], 1), round(z["next_radius"], 1))
         new_ring = key != self.spot_key
-        cfg, pos = self.cfg, obs["self"]["pos"]
-        enemies = self.intel.active(t, pos, cfg.avoid_conf) if cfg.intel_avoid else []
-        avoid = bool(enemies) and self.spot is not None and self.climb_t0 is None and \
-            t - self.spot_t > cfg.avoid_respot_s and any(
-                dist2(e.pos, pos) < cfg.avoid_radius or dist2(e.pos, (self.spot.x, self.spot.y)) < cfg.avoid_radius
-                for e in enemies)
-        if new_ring or self.spot is None or avoid or (t - self.spot_t > cfg.respot_s and self.climb_t0 is None):
-            # enemies we know of but do not see right now (seen ones are scored from obs.mechs)
-            heard = [(e.pos[0], e.pos[1], e.conf_at(t, cfg.intel_half_life_s)) for e in enemies
-                     if e.src != "seen" or t - e.t > 0.15] if cfg.intel_avoid else []
-            old = self.spot
-            self.spot = self.pos_planner.choose(obs, None if new_ring else self.spot, self.bad_perch, heard)
-            if avoid and old is not None and dist2((old.x, old.y), (self.spot.x, self.spot.y)) > 4:
-                self.avoid_until = t + 2.0             # label the move for debugging
+        if new_ring or self.spot is None or (t - self.spot_t > self.cfg.respot_s and self.climb_t0 is None):
+            self.spot = self.pos_planner.choose(obs, None if new_ring else self.spot, self.bad_perch)
             self.spot_key, self.spot_t = key, t
             self.climb_t0 = None if new_ring else self.climb_t0
             self.path = None if new_ring else self.path
@@ -461,10 +431,10 @@ class MechBot:
             self.search = PathSearch(wm, wm.nearest_free(pos[0], pos[1]), wm.nearest_free(goal[0], goal[1]))
             self.search_goal, self.plan_t = goal, t
         # spend only what is left of this decision's time on the search (target: under cfg.decide_ms)
-        t0 = getattr(self, "_t0", time.perf_counter())
-        deadline = min(t0 + cfg.decide_ms / 1000.0, time.perf_counter() + cfg.path_ms / 1000.0)
-        if self.search is not None and not self.search.done and time.perf_counter() < deadline:
-            if self.search.step(cfg.path_budget, deadline):
+        left = cfg.decide_ms / 1000.0 - (time.perf_counter() - getattr(self, "_t0", time.perf_counter()))
+        budget = int(cfg.path_budget * max(0.0, min(1.0, left / 0.010)))
+        if self.search is not None and not self.search.done and budget > 0:
+            if self.search.step(budget):
                 self.path, self.path_goal, self.path_i = self.search.path, self.search_goal, 0
         if not self.path:
             return (goal[0] - pos[0]) / d, (goal[1] - pos[1]) / d
@@ -493,11 +463,8 @@ class MechBot:
         cur_yaw, cur_pitch = me["aim"]
         tgt = plan.target
         if tgt is None:
-            heard = self.intel.active(t, pos, self.cfg.avoid_conf) if plan.face_bearing is None else []
             if plan.face_bearing is not None:
                 yaw = plan.face_bearing
-            elif heard:
-                yaw = yaw_to(pos, heard[0].pos)   # keep our front armour toward the likeliest threat
             elif math.hypot(*move) > 0.1:
                 yaw = math.atan2(move[1], move[0]) + cfg.scan_amp * math.sin(t * cfg.scan_rate)
             else:

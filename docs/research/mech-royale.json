@@ -113,38 +113,16 @@
   "submissions": [
     {
       "version": "v1",
-      "commit": "1bc77f0",
-      "submitted": "Fri 8:57 PM ET",
+      "commit": "c6a6b63",
       "score": 3.21,
-      "wait_ms": 8,
-      "note": "survivor bot"
+      "rank": "51 of 94",
+      "note": "survivor bot; mean place ~12.8. No per-match data available."
     },
     {
-      "version": "v3",
-      "commit": "5db062e",
-      "submitted": "Fri 9:24 PM ET",
-      "score": 3.52,
-      "wait_ms": 143,
-      "note": "strafing + positional play (v2 was never scored alone). Best so far; entered in the final"
-    },
-    {
-      "version": "v4",
-      "commit": "9cd3063",
-      "submitted": "Fri 9:37 PM ET",
-      "score": 2.58,
-      "wait_ms": 46,
-      "note": "bundled cover-first combat + 130 m laser detour + speed fix, against the one-change rule; cannot attribute the drop. wait fell 143 -> 46 ms, consistent with the speed fix working"
-    },
-    {
-      "version": "A+B+C merge",
-      "commit": "bf61a15",
-      "submitted": "Fri 10:00 PM ET",
-      "score": 2.9,
-      "wait_ms": 109,
-      "note": "merged PR #1 (speed fix + aim + intel/cover-when-shot). Below v3: both cover-and-peek versions (v4, this) scored lower"
+      "version": "v2",
+      "commit": "9b34491",
+      "score": null,
+      "note": "strafe whenever shooting or under fire; score not reported yet"
     }
-  ],
-  "plan": [
-    "v5 (main): v3 + speed fix + fire discipline + intel avoidance + close laser grab. Each is a config flag (threat_radius_mech, intel_avoid, laser_grab) so a regression can be bisected one flag per submission."
   ]
 }

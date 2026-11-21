@@ -15,14 +15,12 @@ class BotConfig:
 
     # --- scoring: 16 - place, survival beats kills (section 4). House bots hunt the weakest entrant first,
     # so keeping HP high (regen needs 5 s without dealing or taking damage, section 7 Health) is the core plan.
-    # Shoot only when necessary (board: the more aggressive versions scored lower). Necessary = a mech that hit us
-    # in the last provoked_s, a mech already inside threat_radius_mech, a drone inside its own aggro range
-    # (npc.aggro_range, 45 m: it shoots anyway) or that hit us. Everything else is avoided (intel_avoid below).
-    threat_radius_mech: float = 40.0
-    endgame_alive: int = 3               # with this few mechs left, the radius widens to endgame_radius
-    endgame_radius: float = 90.0
+    # Fight only when we must: a mech that hit us, a mech inside threat_radius_mech, or a drone inside its own
+    # aggro range (npc.aggro_range, 45 m, section 7 NPC drones) or one that hit us. Everything else is watched.
+    threat_radius_mech: float = 90.0
+    endgame_alive: int = 3               # with this few mechs left, widen the mech radius by endgame_mult
+    endgame_mult: float = 1.5
     provoked_s: float = 4.0              # an attacker stays "hostile" this long after its last hit on us
-    shoot_crates: bool = False           # gunfire carries 320 m and crates 220 m (section 8): loud for one cube
     retreat_hp_frac: float = 0.35        # below this, back away from the fight while still facing it (rear x1.5)
 
     # --- zone (section 9). Hold near the edge of the next circle on our side: shortest moves, fewest fights.
@@ -50,7 +48,7 @@ class BotConfig:
     bad_perch_s: float = 60.0
     respot_s: float = 8.0                # re-score spots this often (hysteresis keeps us put unless clearly better)
     ground_stride: int = 4               # sample ground spots at least every 4 cells (12 m)...
-    ground_samples: int = 700            # ...and widen the stride so a big circle stays under this many
+    ground_samples: int = 1200           # ...and widen the stride so a big circle stays under this many
     height_cap: float = 30.0
     w_height: float = 1.2
     w_room: float = 0.3
@@ -60,24 +58,6 @@ class BotConfig:
     w_crowd: float = 0.8
     w_npc: float = 0.6
     w_stay: float = 0.25
-
-    # --- close laser grab: worth a short trip even from our spot, then straight back
-    laser_grab: bool = True
-    laser_grab_radius: float = 40.0
-    laser_grab_clear: float = 80.0       # skip it if a seen mech is this close to it (60 % of this for heard ones)
-
-    # --- intel avoidance (intel.py): footsteps, gunfire, jets, reloads, beams, bullets, damage -> estimates.
-    # When enemies are heard or seen near us or near our spot, re-pick the spot away from them; the ring
-    # (spot inside the next circle, reachable before the shrink ends) always constrains the choice.
-    intel_avoid: bool = True
-    intel_half_life_s: float = 3.0       # an estimate's confidence halves every 3 s without fresh info
-    intel_merge_m: float = 30.0          # a seen mech this close to an anonymous estimate accounts for it
-    unseen_dist: float = 100.0           # shot by an unseen gun with no matching sound: assume this distance
-    avoid_radius: float = 90.0           # enemies (seen or heard) this close to us or our spot trigger a re-pick
-    avoid_conf: float = 0.35             # heard estimates count from this confidence
-    avoid_respot_s: float = 3.0          # re-pick at most this often while avoiding
-    w_intel: float = 1.0                 # spot penalty per enemy (x confidence) within avoid_near of a spot
-    avoid_near: float = 80.0
 
     # --- NPC drones aggro at 45 m with line of sight (section 7 NPC drones)
     npc_avoid: float = 55.0
@@ -93,10 +73,8 @@ class BotConfig:
     stuck_s: float = 0.6
     waypoint_lookahead: int = 4          # cells ahead on the A* path to steer at
     replan_s: float = 2.5
-    path_budget: int = 2500              # cap on A* node expansions per decision...
-    path_ms: float = 2.5                 # ...and on its wall time: the search resumes next decision
-    decide_ms: float = 8.0               # aim to finish every decision by this (budget is 50 ms on 1 CPU; the
-                                         # match container can be several times slower than a laptop)
+    path_budget: int = 2500              # A* node expansions per 10 ms of time left in the decision
+    decide_ms: float = 22.0              # aim to finish every decision by this (budget is 50 ms on 1 CPU)
     # --- evasion: never stand still under fire. A gun bullet takes ~0.4 s to cross 100 m (252 m/s), and the
     # enemy leads on our current velocity, so legs of random length (reversals it cannot time) at boost speed
     # (19.5 vs 11.7 m/s, section 7 Movement) make its lead wrong. Boost drains 17/s and energy regenerates

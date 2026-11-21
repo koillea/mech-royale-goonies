@@ -29,8 +29,6 @@ class Perch:
     height: float                 # roof top above the ground at its launch cells
     cells: List[int]              # interior roof cells (at least one cell from every edge)
     launch: List[int]             # free ground cells next to the building, to jet up from
-    cells_xy: List[Tuple[float, float]] = field(default_factory=list)
-    launch_xy: List[Tuple[float, float]] = field(default_factory=list)
 
 
 @dataclass
@@ -85,21 +83,8 @@ def build_perches(wm: WorldMap, min_height: float, min_cells: int) -> List[Perch
         height = top - base
         if height < min_height:
             continue
-        if len(launch_l) > 48:                    # an even spread of 48 is plenty to pick a nearby foot
-            step = len(launch_l) / 48.0
-            launch_l = [launch_l[int(i * step)] for i in range(48)]
-        out.append(Perch(p, top, height, interior, launch_l,
-                         [wm.center(k) for k in interior], [wm.center(k) for k in launch_l]))
+        out.append(Perch(p, top, height, interior, launch_l))
     return out
-
-
-def _nearest(pts: List[Tuple[float, float]], x: float, y: float) -> Tuple[float, float]:
-    best, bd = pts[0], 1e18
-    for px, py in pts:
-        d = (px - x) * (px - x) + (py - y) * (py - y)
-        if d < bd:
-            best, bd = (px, py), d
-    return best
 
 
 class PositionPlanner:
@@ -117,10 +102,7 @@ class PositionPlanner:
         jump = st.get("jump_speed", mech.get("jump_speed", 11.0))
         return self.cfg.climb_safety * me.get("max_energy", 100.0) * rise / max(drain, 1e-6) + jump * jump / (2 * g)
 
-    def choose(self, obs: Dict[str, Any], current: Optional[Spot], bad: Dict[int, float],
-               heard: Optional[List[Tuple[float, float, float]]] = None) -> Spot:
-        """`heard`: (x, y, confidence) of enemies intel places nearby without seeing them right now."""
-        heard = heard or []
+    def choose(self, obs: Dict[str, Any], current: Optional[Spot], bad: Dict[int, float]) -> Spot:
         cfg, wm, me, t, z = self.cfg, self.wm, obs["self"], obs["t"], obs["zone"]
         pos = me["pos"]
         nc, nr = z["next_center"], z["next_radius"]
@@ -141,7 +123,6 @@ class PositionPlanner:
                 "travel": -cfg.w_travel * travel / avail,
                 "crowd": -cfg.w_crowd * sum(1 for m in mechs if math.hypot(m["pos"][0] - x, m["pos"][1] - y) < 80),
                 "npc": -cfg.w_npc * sum(1 for n in npcs if math.hypot(n["pos"][0] - x, n["pos"][1] - y) < 55),
-                "heard": -cfg.w_intel * sum(c for hx, hy, c in heard if math.hypot(hx - x, hy - y) < cfg.avoid_near),
             }
             if current is not None and math.hypot(current.x - x, current.y - y) < 4.0:
                 parts["stay"] = cfg.w_stay
@@ -152,10 +133,12 @@ class PositionPlanner:
             for p in self.perches:
                 if bad.get(p.pid, -1) > t or p.height > cmax:
                     continue
-                x, y = _nearest(p.cells_xy, nc[0], nc[1])
+                k = min(p.cells, key=lambda c: (wm.center(c)[0] - nc[0]) ** 2 + (wm.center(c)[1] - nc[1]) ** 2)
+                x, y = wm.center(k)
                 if math.hypot(x - nc[0], y - nc[1]) > lim:
                     continue
-                lx, ly = _nearest(p.launch_xy, pos[0], pos[1])
+                lk = min(p.launch, key=lambda c: (wm.center(c)[0] - pos[0]) ** 2 + (wm.center(c)[1] - pos[1]) ** 2)
+                lx, ly = wm.center(lk)
                 on_it = wm.elevated(pos[0], pos[1], pos[2]) and abs(pos[2] - p.top) < 1.5
                 travel = 0.0 if on_it else math.hypot(lx - pos[0], ly - pos[1]) * 1.3 / speed + p.height / 8.0 + 3.0
                 if travel > avail:
@@ -193,7 +176,8 @@ class PositionPlanner:
         return best
 
     def launch_for(self, p: Perch, pos: List[float]) -> Tuple[float, float]:
-        return _nearest(p.launch_xy, pos[0], pos[1])
+        k = min(p.launch, key=lambda c: (self.wm.center(c)[0] - pos[0]) ** 2 + (self.wm.center(c)[1] - pos[1]) ** 2)
+        return self.wm.center(k)
 
     def nearest_roof_cell(self, p: Perch, pos: List[float]) -> Tuple[float, float]:
         """Closest cell of the building (edge included) to jet toward from the launch point."""

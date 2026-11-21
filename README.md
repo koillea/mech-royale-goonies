@@ -90,21 +90,6 @@ energy is above 45, a hop every ~2.5 s while energy is above 60, a push to keep 
 strafe side. The one exception is real cover: at the COVER spot with no line of sight from the attacker it stays put
 to regenerate; if the attacker can still see it there, it strafes and searches for new cover.
 
-## v5: avoid fights, ring first, shoot only when necessary
-
-Built on v3 (strafing + roof positioning, the best score so far) with its speed fix. The board says the more
-aggressive versions do worse (v4 2.58 and the A+B+C merge 2.90, both with cover-and-peek fighting, against v3's 3.52), so:
-
-- **Shoot only when necessary:** a mech that hit us in the last 4 s, a mech inside 40 m (90 m once only 3
-  remain), a drone inside its 45 m aggro range or that hit us. Crates are left alone (gunfire carries 320 m).
-  Everything else is watched, faced (front armour) and avoided.
-- **Avoid with intel** (`intel.py`): footsteps, boosts, jets, reloads, gunfire, laser/lightning beams, incoming
-  bullets and damage become enemy estimates. When enemies are seen or heard within 90 m of us or of our spot,
-  the spot is re-picked (at most every 3 s) with a penalty for every estimate within 80 m of a candidate.
-  The ring still constrains every choice: spots must be inside the next circle and reachable before the shrink.
-- **Close laser grab:** a laser within 40 m with no mech within 80 m of it (and no heard one within 48 m) is
-  taken even from our spot; picking it up immediately re-picks the spot, so the bot goes straight back.
-
 ## Quick start
 
 ```bash
