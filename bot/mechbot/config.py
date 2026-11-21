@@ -84,8 +84,8 @@ class BotConfig:
     # enemy leads on our current velocity, so legs of random length (reversals it cannot time) at boost speed
     # (19.5 vs 11.7 m/s, section 7 Movement) make its lead wrong. Boost drains 17/s and energy regenerates
     # 18/s after 0.6 s, so bursts above a reserve keep energy for unsticking and jets.
-    strafe_leg_min_s: float = 0.8
-    strafe_leg_max_s: float = 2.0
+    strafe_leg_min_s: float = 0.35       # D1: was 0.8
+    strafe_leg_max_s: float = 0.9        # D1: was 2.0
     strafe_wall_probe: float = 6.0       # metres: a wall this close on the strafe side reverses the leg
     strafe_boost_energy: float = 45.0    # boost while strafing only above this energy
     hop_energy: float = 60.0             # occasional jump (vertical 11 m/s) to spoil the enemy's pitch lead
