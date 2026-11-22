@@ -25,6 +25,11 @@ class BotConfig:
     kill_cubes: bool = True
     kill_cube_s: float = 20.0            # give up on a kill spot after this long
     kill_cube_radius: float = 120.0      # ...or when it is this far away
+    # F2 face the attacker: a hit from behind (rear=true, x1.5 damage) turns us to that attacker at once,
+    # unless our current target is below rear_keep_frac HP
+    face_rear: bool = True
+    rear_react_s: float = 1.0
+    rear_keep_frac: float = 0.25
     retreat_hp_frac: float = 0.35        # below this, back away from the fight while still facing it (rear x1.5)
 
     # --- zone (section 9). Hold near the edge of the next circle on our side: shortest moves, fewest fights.

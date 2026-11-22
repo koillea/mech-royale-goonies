@@ -125,6 +125,17 @@ class HeuristicPlanner:
         npcs = [m for m in obs["mechs"] if m["kind"] == "npc"]
         hostile = mem.hostile_ids(t, cfg.provoked_s)
         target, kind, why = self._pick_target(obs, mechs, npcs, hostile)
+        if cfg.face_rear and t - mem.rear_t < cfg.rear_react_s:
+            # F2: hit from behind (x1.5): turn to that attacker at once, unless our target is nearly dead
+            low = target is not None and kind == "mech" and \
+                target.get("hp", 1400) < cfg.rear_keep_frac * max(target.get("max_hp", 1400), 1.0)
+            if not low and (target is None or target["id"] != mem.rear_by):
+                att = next((m for m in obs["mechs"] if m["id"] == mem.rear_by), None)
+                if att is not None:
+                    target, kind = att, ("mech" if att["kind"] == "mech" else "npc")
+                    why = f"{att['id']} hit our back"
+                elif mem.rear_bearing is not None and not urgent:
+                    return Plan("ALERT", goal=goal, face_bearing=mem.rear_bearing, rationale="ALERT hit in the back (F2)")
 
         if cfg.kill_cubes and not urgent and mem.kill_spot is not None:
             kp = self._kill_cubes(obs, mem, target, kind)

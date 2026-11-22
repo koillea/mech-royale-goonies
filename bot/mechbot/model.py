@@ -37,6 +37,7 @@ class Memory:
         self.dmg_by: Optional[int] = None
         self.sounds: List[Tuple[float, float, str]] = []   # (t, bearing, dist)
         self.took_damage_t = -1e9
+        self.rear_t, self.rear_by, self.rear_bearing = -1e9, None, None   # F2: last hit from behind
         self.seen_pos: Dict[int, Tuple[float, float, float]] = {}   # mech id -> last seen (x, y, t)
         self.kill_spot: Optional[Tuple[float, float, float]] = None  # C6: where our last kill died, and when
         self.kills = 0
@@ -59,6 +60,8 @@ class Memory:
                     self.dmg_by = int(e["by"])
                 if e.get("bearing") is not None:
                     self.dmg_bearing, self.dmg_t = e["bearing"], t
+                if e.get("rear") and e.get("by") is not None:
+                    self.rear_t, self.rear_by, self.rear_bearing = t, int(e["by"]), e.get("bearing")
         for s in obs.get("sounds", []):
             if s["kind"] in LOUD and s["dist"] in ("near", "mid"):
                 self.sounds.append((t - s.get("age", 0), s["bearing"], s["dist"]))
