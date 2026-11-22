@@ -337,9 +337,23 @@ C9 (prefer cube carriers) 4.23.
 
 | id | branch / commit | change | behaviour check (champ-4.42 -> change, 40 seeds) | cubes 20 s / 60 s / end | kills | rear hits | Docker max | board |
 |---|---|---|---|---|---|---|---|---|
-| F1 | f1 `2b8da9d75f8269e96f95ac13e1cd2d199df1ffc7` | no retreat: no low-HP back-off, no cover runs (range-band spacing kept) | **COVER time 8 % -> 0, FIGHT 33 -> 42 %**, kills 2.85 -> 3.30, cubes within 20 s of a kill 3.8 -> 5.4 | 1.10 / 3.92 / 7.72 | 3.30 | 5.9 | 5.8 ms | pending |
+| F1 | f1 `2b8da9d75f8269e96f95ac13e1cd2d199df1ffc7` | no retreat: no low-HP back-off, no cover runs (range-band spacing kept) | **COVER time 8 % -> 0, FIGHT 33 -> 42 %**, kills 2.85 -> 3.30, cubes within 20 s of a kill 3.8 -> 5.4 | 1.10 / 3.92 / 7.72 | 3.30 | 5.9 | 5.8 ms | **4.48: NEW BEST** (confirm run pending) |
 | F2 | f2 `f6771c7a2e9d789fc1f7283fa349cb84debadb3e` | a rear hit turns us to that attacker at once (unless our target < 25 % HP); unseen: turn to the bearing | **rear hits NOT down: 5.1 -> 5.5** (same ~12 % share of hits); missed kills 0.28 -> 0.15 | 1.02 / 3.73 / 6.65 | 2.88 | 5.5 | 7.4 ms | pending |
-| F3 | f3 `9d2cfb9e425d332ca1cb72735c959e59e2c7628e` | after the first mech is seen, no farming except cubes within 15 m (C6 kill cubes kept) | **LOOT time 30 -> 12 %, cubes 6.2 -> 3.4**, cubes at 20 s 1.1 -> 0.6 | 0.60 / 1.90 / 3.42 | 2.48 | 4.7 | 7.3 ms | pending |
+| F3 | f3 `9d2cfb9e425d332ca1cb72735c959e59e2c7628e` | after the first mech is seen, no farming except cubes within 15 m (C6 kill cubes kept) | **LOOT time 30 -> 12 %, cubes 6.2 -> 3.4**, cubes at 20 s 1.1 -> 0.6 | 0.60 / 1.90 / 3.42 | 2.48 | 4.7 | 7.3 ms | **3.38: DROPPED** (cutting farming costs ~1 point) |
+
+Board summary so far: farm cubes early and at fights (+), never retreat (+), never wander far from fights for
+items (-).
+
+### Single changes on F1 (`2b8da9d75f8269e96f95ac13e1cd2d199df1ffc7`)
+
+| id | branch / commit | change | behaviour check (F1 -> change, 40 seeds) | cubes 20 s / 60 s / end | kills | rear hits | Docker max | board |
+|---|---|---|---|---|---|---|---|---|
+| G1 | g1 `31d3c4bb2db834f3a2e571f4e9789afac434ea03` | opener: walking to a cube or laser, shoot a drone (50-110 m) or crate (<= 70 m) already in view, no detour | **cubes at 20 s 1.10 -> 1.38, at 60 s 3.92 -> 4.30** | 1.38 / 4.30 / 7.12 | 3.10 | 5.6 | 5.3 ms | pending |
+| G2 (= F4) | f4 `00308ff38d78fa163c4f79d6595ce607719b7dcd` | no spacing back-off: a mech inside the range band is held (strafe only), not backed off | unit test: F1 backs off west at -0.4, G2 holds; sim kills 3.30 -> 2.83 | 1.07 / 3.77 / 6.70 | 2.83 | 6.3 | 5.3 ms | pending |
+| F1+F3 | f1f3 `eb20007417401798a4be41b65ad840d861e05213` | built before F3's board result; obsolete (F3 dropped) | - | 0.60 / 2.17 / 3.85 | 2.40 | 4.5 | 5.4 ms | not to submit |
+
+Timing: sim max 17-25 ms for F1 and G1 alike on rerun (machine load: same seeds, same decisions as earlier 13-14 ms
+runs); Docker check.py reruns 4.9-5.3 ms.
 
 ## Board results (all official runs, 48 matches each)
 
