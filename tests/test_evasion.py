@@ -2,7 +2,7 @@
 import copy
 import math
 
-from mechbot import MechBot
+from mechbot import BotConfig, MechBot
 
 
 def _attacked(observations, dist=90.0, weapons=("gun",)):
@@ -48,7 +48,7 @@ def test_strafe_legs_reverse_at_irregular_intervals(hello, observations):
 
 
 def test_backs_off_when_too_close(hello, observations):
-    bot = MechBot(hello)
+    bot = MechBot(hello, BotConfig(no_spacing=False))   # F4 holds instead (test_f4.py)
     o = _attacked(observations, dist=20.0)
     o["zone"]["next_center"] = o["self"]["pos"][:2]
     assert bot.act(o)["move"][0] < 0                   # enemy is east: move west

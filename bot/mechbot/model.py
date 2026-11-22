@@ -391,7 +391,7 @@ class MechBot:
         if zr is not None:
             pass                                    # on our roof: hold the height, strafe only
         elif (plan.retreat or d < lo) and not (cfg.no_retreat and d >= lo):
-            radial = -0.8
+            radial = 0.0 if cfg.no_spacing else -0.8     # F4: hold our ground (strafe only), never back off
         elif d > hi and plan.mode == "FIGHT":
             radial = 0.5
         rx, ry = math.cos(by) * radial, math.sin(by) * radial
