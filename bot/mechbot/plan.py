@@ -168,6 +168,33 @@ class HeuristicPlanner:
         return Plan(mode, goal=goal, face_bearing=heard,
                     rationale=f"{mode} {where}" + (" heard" if heard is not None else ""))
 
+    def _focus(self, obs, mechs, best, why):
+        """C2 focus fire: keep the locked mech until it dies or has been out of sight focus_lost_s; switch
+        only to a visible mech below focus_switch_frac of its HP. Counts switches (telemetry)."""
+        cfg, t = self.cfg, obs["t"]
+        pos = obs["self"]["pos"]
+        lid = getattr(self, "lock_id", None)
+        if lid is not None and t - getattr(self, "lock_seen", -1e9) > cfg.focus_lost_s:
+            lid = self.lock_id = None
+        lock = next((m for m in mechs if m["id"] == lid), None)
+        frac = lambda m: m.get("hp", 1400) / max(m.get("max_hp", 1400), 1.0)
+        if lock is not None:
+            low = [m for m in mechs if m is not lock and frac(m) < cfg.focus_switch_frac and frac(m) < frac(lock)]
+            if low:
+                best = min(low, key=frac)
+                why = f"{best['id']} nearly dead {dist2(best['pos'], pos):.0f}m"
+            else:
+                best, why = lock, f"{lock['id']} locked {dist2(lock['pos'], pos):.0f}m"
+        if lock is None and lid is not None:
+            return best, why                 # lock out of sight < 2 s: fight this one meanwhile, keep the lock
+        if best is not None:
+            if best["id"] != lid:
+                if lid is not None:
+                    self.switches = getattr(self, "switches", 0) + 1
+                self.lock_id = best["id"]
+            self.lock_seen = t
+        return best, why
+
     def _opener(self, obs, npcs, zgoal) -> Optional[Plan]:
         """C1: the first minute is for cubes. Cheapest next item: a visible cube, a laser, a drone (shot from
         50-110 m, outside its 45 m aggro), a crate. Only items inside the current circle."""
@@ -250,6 +277,8 @@ class HeuristicPlanner:
             if score > best_score:
                 best, best_score = m, score
                 why = f"{m['id']} {'hostile' if is_hostile else 'inside'} {d:.0f}m"
+        if cfg.focus_fire:
+            best, why = self._focus(obs, mechs, best, why)
         if best is not None:
             return best, "mech", why
         aggro = self.rules.get("npc", {}).get("aggro_range", 45.0)

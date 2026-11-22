@@ -21,6 +21,11 @@ class BotConfig:
     endgame_alive: int = 3               # with this few mechs left, widen the mech radius by endgame_mult
     endgame_mult: float = 1.5
     provoked_s: float = 4.0              # an attacker stays "hostile" this long after its last hit on us
+    # C2 focus fire: never spread damage. Keep the locked target until it dies or is out of sight 2 s;
+    # switch only to a visible mech under 40 % HP (user's real-game run: switching lost a 4th place).
+    focus_fire: bool = True
+    focus_lost_s: float = 2.0
+    focus_switch_frac: float = 0.4
     retreat_hp_frac: float = 0.35        # below this, back away from the fight while still facing it (rear x1.5)
 
     # --- zone (section 9). Hold near the edge of the next circle on our side: shortest moves, fewest fights.
