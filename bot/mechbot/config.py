@@ -18,6 +18,9 @@ class BotConfig:
     # Fight only when we must: a mech that hit us, a mech inside threat_radius_mech, or a drone inside its own
     # aggro range (npc.aggro_range, 45 m, section 7 NPC drones) or one that hit us. Everything else is watched.
     threat_radius_mech: float = 90.0
+    # C9: prefer targets carrying more cubes (a dead mech drops all of them + 2). Each cube is worth 40 m of
+    # distance or 10 % of its HP; being shot at (+1000) still comes first, so we keep facing attackers.
+    w_target_cubes: float = 40.0
     endgame_alive: int = 3               # with this few mechs left, widen the mech radius by endgame_mult
     endgame_mult: float = 1.5
     provoked_s: float = 4.0              # an attacker stays "hostile" this long after its last hit on us
