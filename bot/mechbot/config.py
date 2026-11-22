@@ -29,6 +29,8 @@ class BotConfig:
     # HP and never run for cover; keep fighting, strafing and facing the attacker. The range band (backing off a
     # mech closer than its lower bound) stays: that is spacing, not retreat.
     no_retreat: bool = True
+    # H4: pre-charge the laser (standing, not under fire, a mech in laser range) so a fight opens with 315
+    laser_precharge: bool = True
     retreat_hp_frac: float = 0.35        # below this, back away from the fight while still facing it (rear x1.5)
 
     # --- zone (section 9). Hold near the edge of the next circle on our side: shortest moves, fewest fights.
