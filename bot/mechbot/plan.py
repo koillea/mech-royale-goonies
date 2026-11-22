@@ -125,12 +125,15 @@ class HeuristicPlanner:
         npcs = [m for m in obs["mechs"] if m["kind"] == "npc"]
         hostile = mem.hostile_ids(t, cfg.provoked_s)
         target, kind, why = self._pick_target(obs, mechs, npcs, hostile)
+        if cfg.end_opener_at_contact and mechs:
+            mem.contact = True             # F3: first mech seen: no more farming this match
+        contact = cfg.end_opener_at_contact and getattr(mem, "contact", False)
 
         if cfg.kill_cubes and not urgent and mem.kill_spot is not None:
             kp = self._kill_cubes(obs, mem, target, kind)
             if kp is not None:
                 return kp
-        if cfg.opener and t < cfg.opener_s and not urgent and (target is None or (kind == "mech" and target["id"] not in hostile)):
+        if cfg.opener and t < cfg.opener_s and not urgent and not contact and (target is None or (kind == "mech" and target["id"] not in hostile)):
             op = self._opener(obs, npcs, goal)
             if op is not None:
                 return op
@@ -142,7 +145,8 @@ class HeuristicPlanner:
         if target is not None:
             retreat = (not cfg.no_retreat and kind == "mech" and hp_frac < cfg.retreat_hp_frac
                        and target.get("hp", 0) >= me["hp"] and obs["alive"] > 2)
-            cube = self._cube_near(obs, mem, cfg.cube_fight_radius) if not retreat else None
+            cube = self._cube_near(obs, mem, min(cfg.cube_fight_radius, cfg.contact_cube_radius) if contact
+                                   else cfg.cube_fight_radius) if not retreat else None
             if cube is not None:
                 return Plan("FIGHT", goal=(cube["pos"][0], cube["pos"][1]), target=target, target_kind=kind,
                             collect=True, rationale=f"FIGHT {why} +cube")
@@ -152,12 +156,13 @@ class HeuristicPlanner:
         if bearing is not None:
             return Plan("ALERT", goal=goal, face_bearing=bearing, rationale="ALERT hit from unseen")
 
-        cube = self._cube_near(obs, mem, cfg.cube_radius) if not (hold is not None and hold.climbing) else None
+        cube = self._cube_near(obs, mem, cfg.contact_cube_radius if contact else cfg.cube_radius) \
+            if not (hold is not None and hold.climbing) else None
         if cube is not None:
             return Plan("LOOT", goal=(cube["pos"][0], cube["pos"][1]),
                         rationale=f"LOOT cube {dist2(cube['pos'], pos):.0f}m (E6)")
         near_enemy = any(dist2(m["pos"], pos) < 120 for m in mechs)
-        if t < cfg.loot_until_t and not near_enemy and not busy:
+        if t < cfg.loot_until_t and not near_enemy and not busy and not contact:
             lp = self._loot(obs, npcs, hp_frac, goal)
             if lp is not None:
                 return lp

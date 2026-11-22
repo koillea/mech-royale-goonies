@@ -2,7 +2,7 @@
 import copy
 import math
 
-from mechbot import MechBot
+from mechbot import BotConfig, MechBot
 
 
 def calm(observations, t=300.0):
@@ -21,7 +21,7 @@ def mech(i, p, dx, dy=0.0, hp=1400):
 
 
 def test_late_game_cube_with_a_mech_watching(hello, observations):
-    bot = MechBot(hello)
+    bot = MechBot(hello, BotConfig(end_opener_at_contact=False))   # F3 limits this to 15 m (test_f3.py)
     o = calm(observations)                      # after the old 260 s loot limit
     p = o["self"]["pos"]
     o["cubes"] = [{"id": 5001, "pos": [p[0] + 30, p[1], p[2]]}]
@@ -31,7 +31,7 @@ def test_late_game_cube_with_a_mech_watching(hello, observations):
 
 
 def test_mid_fight_one_attacker_steps_onto_cube(hello, observations):
-    bot = MechBot(hello)
+    bot = MechBot(hello, BotConfig(end_opener_at_contact=False))   # F3 limits this to 15 m (test_f3.py)
     o = calm(observations)
     p = o["self"]["pos"]
     o["mechs"] = [mech(9, p, 70)]
