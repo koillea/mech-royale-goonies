@@ -140,7 +140,7 @@ class HeuristicPlanner:
             return Plan("ROTATE", goal=goal, target=target, target_kind=kind,
                         boost=True, rationale=f"ROTATE {zwhy}" + (f" +{why}" if target else ""))
         if target is not None:
-            retreat = (kind == "mech" and hp_frac < cfg.retreat_hp_frac
+            retreat = (not cfg.no_retreat and kind == "mech" and hp_frac < cfg.retreat_hp_frac
                        and target.get("hp", 0) >= me["hp"] and obs["alive"] > 2)
             cube = self._cube_near(obs, mem, cfg.cube_fight_radius) if not retreat else None
             if cube is not None:

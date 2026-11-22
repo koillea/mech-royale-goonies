@@ -16,4 +16,4 @@ def test_replay_actions_valid_and_fast(hello, observations):
         assert len(a["fire"]) == 2 and all(isinstance(x, bool) for x in a["fire"])
         modes.add(bot.last_plan.mode)
     assert worst < 0.040, f"slowest decision {worst * 1000:.1f} ms"
-    assert "COVER" in modes   # the recorded match has a laser mech hitting us from 150 m
+    assert "COVER" not in modes   # F1: never runs for cover (the recorded match has a laser mech hitting us from 150 m)

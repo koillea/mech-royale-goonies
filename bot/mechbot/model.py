@@ -226,7 +226,7 @@ class MechBot:
     # ================================================================== cover
     def _maybe_cover(self, obs, plan: Plan) -> None:
         """Break line of sight when a fight is bad for us: a laser outranges our gun, or we are losing on HP."""
-        if self.wm is None or plan.mode != "FIGHT" or plan.target_kind != "mech":
+        if self.wm is None or plan.mode != "FIGHT" or plan.target_kind != "mech" or self.cfg.no_retreat:
             return
         me, tgt, t = obs["self"], plan.target, obs["t"]
         d = dist2(me["pos"], tgt["pos"])
@@ -390,7 +390,7 @@ class MechBot:
         radial = 0.0
         if zr is not None:
             pass                                    # on our roof: hold the height, strafe only
-        elif plan.retreat or d < lo:
+        elif (plan.retreat or d < lo) and not (cfg.no_retreat and d >= lo):
             radial = -0.8
         elif d > hi and plan.mode == "FIGHT":
             radial = 0.5

@@ -25,6 +25,10 @@ class BotConfig:
     kill_cubes: bool = True
     kill_cube_s: float = 20.0            # give up on a kill spot after this long
     kill_cube_radius: float = 120.0      # ...or when it is this far away
+    # F1 no retreat (board: C3 heal break -0.7; pulling away lets the squad group up): never back away at low
+    # HP and never run for cover; keep fighting, strafing and facing the attacker. The range band (backing off a
+    # mech closer than its lower bound) stays: that is spacing, not retreat.
+    no_retreat: bool = True
     retreat_hp_frac: float = 0.35        # below this, back away from the fight while still facing it (rear x1.5)
 
     # --- zone (section 9). Hold near the edge of the next circle on our side: shortest moves, fewest fights.
