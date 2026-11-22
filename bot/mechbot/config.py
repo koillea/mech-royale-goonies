@@ -33,6 +33,11 @@ class BotConfig:
     lull_laser: bool = True
     lull_laser_radius: float = 60.0
     lull_s: float = 2.0
+    # J1 supply drops: 3 cubes + full HP + full energy for 4 s alone in an 8 m ring (always known in obs.drops)
+    supply_drops: bool = True
+    supply_radius: float = 150.0
+    supply_quiet_s: float = 3.0          # no mech has hit us for this long (once inside the ring: stay regardless)
+    supply_early_s: float = 6.0          # set off when the walk takes this much longer than the fall
     retreat_hp_frac: float = 0.35        # below this, back away from the fight while still facing it (rear x1.5)
 
     # --- zone (section 9). Hold near the edge of the next circle on our side: shortest moves, fewest fights.

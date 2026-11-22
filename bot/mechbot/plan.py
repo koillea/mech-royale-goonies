@@ -130,6 +130,10 @@ class HeuristicPlanner:
             kp = self._kill_cubes(obs, mem, target, kind)
             if kp is not None:
                 return kp
+        if cfg.supply_drops and not urgent:
+            sp = self._supply(obs, mem, target, kind, hostile)
+            if sp is not None:
+                return sp
         if cfg.opener and t < cfg.opener_s and not urgent and (target is None or (kind == "mech" and target["id"] not in hostile)):
             op = self._opener(obs, npcs, goal)
             if op is not None:
@@ -181,6 +185,35 @@ class HeuristicPlanner:
         mode = "PERCH" if perched else ("CLIMB" if hold is not None and hold.climbing else "HOLD")
         return Plan(mode, goal=goal, face_bearing=heard,
                     rationale=f"{mode} {where}" + (" heard" if heard is not None else ""))
+
+    def _supply(self, obs, mem, target, kind, hostile) -> Optional[Plan]:
+        """J1: a supply drop (3 cubes, full HP and energy for standing alone 4 s in its 8 m ring) landing within
+        supply_radius: go when no mech is engaging us, arriving as it lands; once in the ring stay there,
+        fighting anyone who attacks (only a second mech inside the ring freezes the clock)."""
+        cfg, me, t = self.cfg, obs["self"], obs["t"]
+        pos = me["pos"]
+        speed = me["stats"].get("walk_speed", 11.7)
+        engaged = any(i < 100 for i in mem.hostile_ids(t, cfg.supply_quiet_s))
+        best = None
+        for dr in obs.get("drops", []):
+            d = dist2(dr["pos"], pos)
+            if d > cfg.supply_radius or dr.get("holder") not in (None, me["id"]):
+                continue
+            inside = d < dr.get("radius", 8.0) - 1.5
+            if engaged and not inside:
+                continue
+            if dr["lands_in"] > d / speed + cfg.supply_early_s:
+                continue                       # leave later: arrive as it lands
+            if best is None or d < best[0]:
+                best = (d, dr, inside)
+        if best is None:
+            return None
+        d, dr, inside = best
+        goal = (dr["pos"][0], dr["pos"][1])
+        if target is not None:
+            return Plan("FIGHT", goal=goal, target=target, target_kind=kind, collect=True,
+                        rationale=f"FIGHT +supply drop {d:.0f}m (J1)")
+        return Plan("LOOT", goal=goal, boost=d > 40, rationale=f"LOOT supply drop {d:.0f}m" + (" capturing" if inside else "") + " (J1)")
 
     def _kill_cubes(self, obs, mem, target, kind) -> Optional[Plan]:
         """C6: after a kill, its cubes (all it carried + 2) lie within a few metres of where it died. Go there
