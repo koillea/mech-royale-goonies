@@ -78,6 +78,8 @@ class BotConfig:
     fast_opener: bool = True
     opener_sweep: float = 0.4
     opener_memory_s: float = 15.0
+    opener_boost_m: float = 25.0         # boost to an opener item further than this...
+    opener_boost_energy: float = 30.0    # ...while energy is above this (drain 17/s, regen 18/s)
 
     # --- NPC drones aggro at 45 m with line of sight (section 7 NPC drones)
     npc_avoid: float = 55.0

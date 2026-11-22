@@ -224,7 +224,11 @@ class HeuristicPlanner:
                                            rationale=f"OPENER crate {d:.0f}m")))
         if not cands:
             return None
-        return min(cands, key=lambda x: x[0])[1]
+        best = min(cands, key=lambda x: x[0])[1]
+        if cfg.fast_opener and best.goal is not None and dist2(best.goal, pos) > cfg.opener_boost_m \
+                and me["energy"] > cfg.opener_boost_energy:
+            best.boost = True             # C7: 19.5 m/s instead of 11.7 to the next item
+        return best
 
     def _opener_memory(self, obs, npcs, pos, t):
         """C7: items are listed only while in view and the torso sweeps, so remember cubes, crates, lasers and
