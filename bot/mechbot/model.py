@@ -128,6 +128,8 @@ class MechBot:
         self.last_plan: Optional[Plan] = None
         self.cover: Optional[Tuple[float, float]] = None
         self.cover_t = -1e9
+        self.healing = False
+        self.heal_n = 0
         self.cover_from: Optional[int] = None
         gc.collect()
         gc.freeze()   # the map's objects never die: keep the collector from rescanning them mid-match
@@ -142,10 +144,13 @@ class MechBot:
         self.hold = self._hold(obs)
         plan = self.planner.plan(obs, self.mem, self.hold)
         self._maybe_cover(obs, plan)
+        self._heal_break(obs, plan)
         self.last_plan = plan
         act: Dict[str, Any] = {"tick": obs["tick"]}
         move, boost, jump = self._move(obs, plan)
         aim, fire, reload_ = self._aim_fire(obs, plan, move)
+        if self.healing:
+            fire = [False, False]          # C3: dealing damage also resets regen
         act.update(move=[round(move[0], 3), round(move[1], 3)], boost=boost, jump=jump,
                    aim=[round(aim[0], 4), round(aim[1], 4)], fire=fire)
         if reload_:
@@ -243,6 +248,40 @@ class MechBot:
             plan.boost = True
             plan.mode = "COVER"
             plan.rationale = f"COVER from {tgt['id']} {d:.0f}m"
+
+    def _heal_break(self, obs, plan: Plan) -> None:
+        """C3: 2+ mechs hit us in the last 3 s and HP < 50 %: break line of sight, facing the attacker, hold
+        fire, until 5 s without damage (regen 45 HP/s starts after 5 s), then re-engage."""
+        cfg, me, t = self.cfg, obs["self"], obs["t"]
+        if not cfg.heal_break or self.wm is None:
+            return
+        attackers = {i for i in self.mem.hostile_ids(t, cfg.heal_window_s) if i < 100}
+        if not self.healing and len(attackers) >= 2 and me["hp"] < cfg.heal_hp_frac * me["max_hp"]:
+            self.healing = True
+            self.heal_n += 1
+        if self.healing and t - self.mem.took_damage_t >= cfg.heal_quiet_s:
+            self.healing = False
+        if not self.healing or plan.mode == "ROTATE":
+            return
+        tgt = plan.target if plan.target_kind == "mech" else None
+        if tgt is None:
+            ids = sorted(attackers, key=lambda i: -self.mem.attackers[i])
+            tgt = next((m for i in ids for m in obs["mechs"] if m["id"] == i), None)
+        if tgt is None:
+            plan.rationale = "HEAL waiting (no attacker in sight)"
+            return
+        if self.cover_from != tgt["id"] or t - self.cover_t > 1.0:
+            self.cover = self._find_cover(me, tgt)
+            self.cover_t, self.cover_from = t, tgt["id"]
+        pos = me["pos"]
+        if self.cover is not None:
+            plan.goal = self.cover
+        else:
+            a = yaw_to(tgt["pos"], pos)
+            plan.goal = (pos[0] + math.cos(a) * 30.0, pos[1] + math.sin(a) * 30.0)
+        plan.target, plan.target_kind = tgt, "mech"
+        plan.mode, plan.boost, plan.retreat, plan.collect = "COVER", True, False, False
+        plan.rationale = f"HEAL break from {tgt['id']} ({len(attackers)} attackers)"
 
     def _find_cover(self, me, tgt) -> Optional[Tuple[float, float]]:
         wm, pos = self.wm, me["pos"]
