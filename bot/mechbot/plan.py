@@ -288,6 +288,12 @@ class HeuristicPlanner:
             if score > best_score:
                 best, best_score = m, score
                 why = f"{m['id']} {'hostile' if is_hostile else 'inside'} {d:.0f}m"
+        if cfg.outnumbered_lowest:
+            att = [m for m in mechs if m["id"] in hostile]
+            if len(att) >= 2:
+                # J6: 2+ mechs attacking us: the lowest-HP attacker dies soonest, so incoming fire drops fastest
+                best = min(att, key=lambda m: m.get("hp", 1400))
+                why = f"{best['id']} lowest of {len(att)} attackers {dist2(best['pos'], pos):.0f}m"
         if best is not None:
             return best, "mech", why
         aggro = self.rules.get("npc", {}).get("aggro_range", 45.0)
