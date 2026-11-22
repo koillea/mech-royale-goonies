@@ -72,7 +72,7 @@ class BotConfig:
     opener_crate_radius: float = 150.0
     opener_crate_shoot: float = 70.0     # walk to within this of a crate, then shoot it
     opener_cube_radius: float = 120.0
-    opener_laser_radius: float = 120.0
+    opener_laser_radius: float = 150.0   # C5: was 120
 
     # --- NPC drones aggro at 45 m with line of sight (section 7 NPC drones)
     npc_avoid: float = 55.0

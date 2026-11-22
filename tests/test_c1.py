@@ -69,3 +69,12 @@ def test_a_mech_attack_overrides_the_opener_and_it_ends_at_60s(hello, observatio
     o["mechs"] = [drone(o["self"]["pos"], 80)]
     bot.act(o)
     assert "OPENER" not in bot.last_plan.rationale
+
+
+def test_c5_goes_140m_for_a_laser(hello, observations):
+    bot = MechBot(hello)
+    o = base(observations)
+    me = o["self"]["pos"]
+    o["pickups"] = [{"id": 8001, "kind": "laser", "pos": [me[0] + 140, me[1], me[2]]}]
+    bot.act(o)
+    assert "laser" in bot.last_plan.rationale
