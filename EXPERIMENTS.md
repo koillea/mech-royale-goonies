@@ -397,7 +397,7 @@ house bots. The sim house bots do not contest drops (unknown for the real ones).
 | J2 | j2 `756c5a1df859670ec7152897b090c1acebda09cf` | never take a mortar; drop one we hold | **time holding a mortar 10 % -> 0**; cook-offs taken 0 in both (sim house lasers never hit us while we carried one) | 3.65 | 7.62 | 5.9 | 7.6 ms | 4.67 (BB-4A1A364B): below champ-4.83 (4.79/4.83), dropped |
 | J3 | j3 `17715db452e71f8d5bb25b3b96f20c5386587853` | B2 drone kiting (98ba5b5) ported onto H3 unchanged | **drone damage to house bots 2,470 -> 3,008/match (+22 %)**, KITE 5 % of time, missed kills 0.33 -> 0.17 | 3.65 | 7.40 | 6.3 | 6.0 ms | 4.46 (BB-02F5D922): below champ-4.83, dropped (kiting pulls away from fights) |
 | J4 | j4 `9a94da5318421f8ecc365ae0e65ca6287590bec5` | last 60 s with <= 4 alive: start no new fights (answer attacks) | **identical to H3 in all 40 seeds**: the case never arises in the sim (we reach the end in ~5 %); unit test confirms | 3.58 | 7.35 | 5.9 | 6.4 ms | pending |
-| J5 | j5 `f9e377abf9f8f09ce41d5579f9e89102fa899701` | sensors right after the laser upgrades, before plating | **sensors 0.23 -> 0.55/match, rear hits 5.90 -> 5.35** | 3.02 | 6.53 | 5.35 | 6.9 ms | pending |
+| J5 | j5 `f9e377abf9f8f09ce41d5579f9e89102fa899701` | sensors right after the laser upgrades, before plating | **sensors 0.23 -> 0.55/match, rear hits 5.90 -> 5.35** | 3.02 | 6.53 | 5.35 | 6.9 ms | 4.54 (BB-F736A5EF): below champ-4.83, dropped |
 
 ### H3's causes of death (sim, 60 seeds, omniscient squad)
 
