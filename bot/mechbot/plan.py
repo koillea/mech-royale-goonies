@@ -186,9 +186,20 @@ class HeuristicPlanner:
         if cubes:
             c = min(cubes, key=lambda c: dist2(c["pos"], pos))
             goal = (c["pos"][0], c["pos"][1])
-        elif d > 3.0:
+        elif d > 3.0 and not getattr(mem, "kill_done", False):
             goal = (kx, ky)                    # not in view yet: walk to the spot
         else:
+            mem.kill_done = True               # C8: the spot is done; do not walk back to it
+            # C8: the kill's cubes are in; sweep up any other visible cube within after_kill_radius (other deaths,
+            # drones, crates) before re-engaging, unless we are being hit
+            if cfg.after_kill_sweep and t - mem.took_damage_t > cfg.after_kill_quiet_s:
+                more = [c for c in obs.get("cubes", []) if dist2(c["pos"], pos) < cfg.after_kill_radius
+                        and math.hypot(c["pos"][0] - cx, c["pos"][1] - cy) < cr - 5.0]
+                if more:
+                    c = min(more, key=lambda c: dist2(c["pos"], pos))
+                    dc = dist2(c["pos"], pos)
+                    return Plan("LOOT", goal=(c["pos"][0], c["pos"][1]), boost=dc > 30,
+                                rationale=f"LOOT after-kill cube {dc:.0f}m (C8)")
             mem.kill_spot = None               # there, nothing left
             return None
         if target is not None:

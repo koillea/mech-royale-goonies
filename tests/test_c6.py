@@ -6,7 +6,7 @@ from mechbot.model import Memory
 
 
 def test_goes_to_the_kill_spot_then_its_cubes_and_stops_when_done(hello, observations):
-    pl = HeuristicPlanner(BotConfig(), hello["config"])
+    pl = HeuristicPlanner(BotConfig(after_kill_sweep=False), hello["config"])   # C8 in test_c8.py
     mem = Memory()
     o = copy.deepcopy(observations[0])
     o.update(mechs=[], events=[], pickups=[], cubes=[], crates=[], drops=[], sounds=[], offer=None)

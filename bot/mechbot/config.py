@@ -25,6 +25,10 @@ class BotConfig:
     kill_cubes: bool = True
     kill_cube_s: float = 20.0            # give up on a kill spot after this long
     kill_cube_radius: float = 120.0      # ...or when it is this far away
+    # C8: then collect any other visible cube within after_kill_radius before re-engaging, unless hit lately
+    after_kill_sweep: bool = True
+    after_kill_radius: float = 60.0
+    after_kill_quiet_s: float = 1.5
     retreat_hp_frac: float = 0.35        # below this, back away from the fight while still facing it (rear x1.5)
 
     # --- zone (section 9). Hold near the edge of the next circle on our side: shortest moves, fewest fights.

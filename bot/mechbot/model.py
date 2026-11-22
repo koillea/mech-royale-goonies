@@ -50,6 +50,7 @@ class Memory:
             if e.get("type") == "kill" and e.get("target") in self.seen_pos:
                 x, y, _ = self.seen_pos[e["target"]]
                 self.kill_spot = (x, y, t)
+                self.kill_done = False
                 self.kills += 1
         for e in obs.get("events", []):
             if e.get("type") == "damaged":
