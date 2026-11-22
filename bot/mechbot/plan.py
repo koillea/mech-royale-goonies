@@ -278,6 +278,9 @@ class HeuristicPlanner:
         best, best_score, why = None, -1e18, ""
         endgame = obs["alive"] <= cfg.endgame_alive
         radius = cfg.threat_radius_mech * (cfg.endgame_mult if endgame else 1.0)
+        dur = self.rules.get("match", {}).get("duration_s", 480.0)
+        if cfg.endgame_hp and obs["alive"] <= cfg.endgame_hp_alive and obs["t"] >= dur - cfg.endgame_hp_s:
+            radius = 0.0     # J4: survivors at the time limit are ranked by HP: start no new fights (answer attacks)
         for m in mechs:
             d = dist2(m["pos"], pos)
             frac = m.get("hp", 1400) / max(m.get("max_hp", 1400), 1.0)

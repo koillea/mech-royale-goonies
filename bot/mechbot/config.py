@@ -18,6 +18,11 @@ class BotConfig:
     # Fight only when we must: a mech that hit us, a mech inside threat_radius_mech, or a drone inside its own
     # aggro range (npc.aggro_range, 45 m, section 7 NPC drones) or one that hit us. Everything else is watched.
     threat_radius_mech: float = 90.0
+    # J4: last endgame_hp_s of the clock with <= endgame_hp_alive mechs left: start no new fights (HP ranks
+    # survivors at the time limit); still fight anyone who attacks us
+    endgame_hp: bool = True
+    endgame_hp_alive: int = 4
+    endgame_hp_s: float = 60.0
     endgame_alive: int = 3               # with this few mechs left, widen the mech radius by endgame_mult
     endgame_mult: float = 1.5
     provoked_s: float = 4.0              # an attacker stays "hostile" this long after its last hit on us
