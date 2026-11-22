@@ -33,3 +33,10 @@ def test_not_while_being_hit(hello, observations):
     pl, mem, o, p = setup(hello, observations)
     mem.took_damage_t = 199.0
     assert "lull" not in pl.plan(o, mem).rationale
+
+
+def test_h5_reaches_a_laser_at_85m(hello, observations):
+    pl, mem, o, p = setup(hello, observations)
+    o["pickups"] = [{"id": 8001, "kind": "laser", "pos": [p[0] - 85, p[1], p[2]]}]
+    mem.took_damage_t = 197.0
+    assert "laser in a lull" in pl.plan(o, mem).rationale
