@@ -90,7 +90,7 @@ class BotConfig:
     # damage taken (1.15 vs 1/0.92 = 1.087); top bots seen on the cast stack plating (sonion 3x, 2.3% first).
     # C1: armour/plating first, then gun damage/rate (was nanites before the gun upgrades)
     upgrade_pref: List[str] = field(default_factory=lambda: [
-        "plating", "armor", "gun_damage", "gun_rate", "nanites", "laser_damage", "laser_charge",
+        "gun_damage", "gun_rate", "armor", "plating", "nanites", "laser_damage", "laser_charge",   # H1: gun first
         "lightning_efficiency", "sensors", "gyros", "gun_mag", "gun_velocity", "servos", "capacitor",
         "reactor", "jets"])
 
