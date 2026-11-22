@@ -370,8 +370,11 @@ The offer holds 3 choices and weapon upgrades appear only for weapons we hold; w
 
 | id | branch / commit | change | behaviour check (H2 -> change, 40 seeds) | kills | cubes | rear hits | Docker max | board |
 |---|---|---|---|---|---|---|---|---|
-| H3 | h3 `2bb15d471801db693776441fc2a689769b3fe1a6` | no laser held, one within 60 m, no hits for 2 s: go take it (keep the target) | laser by 2:00 50 -> 55 %, ever held 55 -> 57 % (rare case) | 3.40 | 7.45 | 6.0 | 5.1 ms | pending |
-| H4 | h4 `da9a8d36e9d08e4eb089819813228f0746711530` | pre-charge the laser while standing (HOLD/PERCH), not hit for 2 s, a mech in laser range: face it and charge, so the fight opens with 315 | **1.8 pre-charges/match, laser shots 7.4 -> 8.7, laser hit rate 75 -> 66 %** | 3.17 | 6.88 | 7.0 | 6.8 ms | pending |
+| H3 | h3 `2bb15d471801db693776441fc2a689769b3fe1a6` | no laser held, one within 60 m, no hits for 2 s: go take it (keep the target) | laser by 2:00 50 -> 55 %, ever held 55 -> 57 % (rare case) | 3.40 | 7.45 | 6.0 | 5.1 ms | **4.79: NEW BEST** (confirm run pending) |
+| H4 | h4 `da9a8d36e9d08e4eb089819813228f0746711530` | pre-charge the laser while standing (HOLD/PERCH), not hit for 2 s, a mech in laser range: face it and charge, so the fight opens with 315 | **1.8 pre-charges/match, laser shots 7.4 -> 8.7, laser hit rate 75 -> 66 %** | 3.17 | 6.88 | 7.0 | 6.8 ms | 4.71 (on H2; about H2's 4.65) |
+| H3+H4 | h3h4 `3252c5a5e4fe77ca975d30072fed04510f574502` | H4's pre-charge on top of H3 | 1.9 pre-charges/match, laser shots 8.3 -> 9.6, laser hit rate 78 -> 70 % (vs H3) | 3.48 | 7.30 | 6.1 | 5.6 ms | pending |
+
+From Sun Nov 22 (user): build all further changes on H3, not H2.
 
 H4 design note: the request said "a full laser shot before switching to the gun". Both slots fire independently and a
 ready laser already charges the moment a target appears, so holding the gun back would only lose ~75 damage per
