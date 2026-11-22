@@ -363,8 +363,20 @@ The offer holds 3 choices and weapon upgrades appear only for weapons we hold; w
 | id | branch / commit | upgrade order | upgrades picked per match (sim, 40 seeds) | kills | cubes | Docker max | board |
 |---|---|---|---|---|---|---|---|
 | champ-4.50 | `2b8da9d75f8269e96f95ac13e1cd2d199df1ffc7` | plating, armor, gun_damage, gun_rate, nanites, laser... | gun 0.75, plating+armor 0.80, laser 0.15 | 3.30 | 7.72 | 5.8 ms | 4.48, 4.50 |
-| H1 | h1 `ea331e3a9581ab710dec3146c94c28fd02165a1b` | gun_damage, gun_rate, plating, armor, ... | **gun 0.95**, plating+armor 0.60, laser 0.15 | 3.17 | 7.47 | 5.7 ms | pending |
-| H2 | h2 `ac09f3c083bbdc0428e0893a2f641ec35a2be440` | laser_damage, laser_charge (only offered with a laser), then as champion | gun 0.63, plating+armor 0.68, **laser 0.45** | 2.98 | 6.83 | 5.7 ms | pending |
+| H1 | h1 `ea331e3a9581ab710dec3146c94c28fd02165a1b` | gun_damage, gun_rate, plating, armor, ... | **gun 0.95**, plating+armor 0.60, laser 0.15 | 3.17 | 7.47 | 5.7 ms | 4.02: DROPPED |
+| H2 | h2 `ac09f3c083bbdc0428e0893a2f641ec35a2be440` | laser_damage, laser_charge (only offered with a laser), then as champion | gun 0.63, plating+armor 0.68, **laser 0.45** | 2.98 | 6.83 | 5.7 ms | **4.65: NEW BEST** (confirm run pending; champ-4.65 if confirmed) |
+
+### Laser changes, single changes on H2 (`ac09f3c083bbdc0428e0893a2f641ec35a2be440`)
+
+| id | branch / commit | change | behaviour check (H2 -> change, 40 seeds) | kills | cubes | rear hits | Docker max | board |
+|---|---|---|---|---|---|---|---|---|
+| H3 | h3 `2bb15d471801db693776441fc2a689769b3fe1a6` | no laser held, one within 60 m, no hits for 2 s: go take it (keep the target) | laser by 2:00 50 -> 55 %, ever held 55 -> 57 % (rare case) | 3.40 | 7.45 | 6.0 | 5.1 ms | pending |
+| H4 | h4 `da9a8d36e9d08e4eb089819813228f0746711530` | pre-charge the laser while standing (HOLD/PERCH), not hit for 2 s, a mech in laser range: face it and charge, so the fight opens with 315 | **1.8 pre-charges/match, laser shots 7.4 -> 8.7, laser hit rate 75 -> 66 %** | 3.17 | 6.88 | 7.0 | 6.8 ms | pending |
+
+H4 design note: the request said "a full laser shot before switching to the gun". Both slots fire independently and a
+ready laser already charges the moment a target appears, so holding the gun back would only lose ~75 damage per
+engagement; the gain is in charging before the engagement, which is what H4 does. Charging halves move speed, so
+it only pre-charges while standing.
 
 ## Board results (all official runs, 48 matches each)
 
