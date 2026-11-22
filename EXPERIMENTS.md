@@ -408,6 +408,21 @@ Score 4.68, median death 106 s, dead in the first minute 27 %, full HP to dead w
 3. **First-minute deaths (16 of 60)**: all FIGHT, mostly 2-3 engagers, first hit at ~9 s, dead at ~37 s; in 5 of
    the 16 the plan at death was "FIGHT +kill cubes" (walking to a kill's cubes while others close in).
 
+### J6-J9, single changes on champ-4.83 (J5 4.54 and J4 4.77: dropped)
+
+| id | branch / commit | change | tests | board |
+|---|---|---|---|---|
+| J6 | j6 `b52fe9214a7419499ba818a8e8e943aad8e68b4c` | with 2+ attackers, shoot the lowest-HP attacker first | pass | pending |
+| J7 | j7 `48721352ad10f2de65ea1c1d2d3c4f98cb2cef83` | no walk to a kill's cubes while 2+ mechs engage us (resumes after) | pass | pending |
+| J8 | j8 `6778638d2c222fe4d7136ed53c0780a948a6dd7f` | opener: a drone in view comes before every crate | pass | pending |
+| J9 | j9 `33e9de778a97d8ebc65527202f4637f549cee4fc` | opener: fight a mech within 90 m first instead of farming past it (first-minute deaths: first hit at ~9 s from a hunter we ignored) | pass | pending |
+
+Docker check.py: J6 5.8 ms, J7 5.3 ms, J8 6.2 ms, J9 5.7 ms max, all PASS.
+
+**Scorer change (Sun Nov 22): builders-4.** 96 matches per submission, fresh random seeds every submission,
+4 submissions/hour; scores from earlier versions no longer count. Under builders-4: J4 (`9a94da5`, behaves as H3
+in practice) = 4.77, the current best. Single runs are noisier now: compare versions by the mean of 2+ runs.
+
 ## Board results (all official runs, 48 matches each)
 
 | board run | bot commit | experiment | the one change | sim estimate | board |
