@@ -1,5 +1,5 @@
 """H1/H2: upgrade choice order."""
-EXPECT = ["gun_rate", "gun_damage", "armor"]   # H1: gun first, armour second
+EXPECT = ["gun_rate", "gun_damage", "plating"]   # H1: gun first, then plating/armour
 from mechbot import BotConfig, MechBot
 
 
