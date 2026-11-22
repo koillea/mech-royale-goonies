@@ -238,7 +238,19 @@ class HeuristicPlanner:
                                            rationale=f"OPENER crate {d:.0f}m")))
         if not cands:
             return None
-        return min(cands, key=lambda x: x[0])[1]
+        best = min(cands, key=lambda x: x[0])[1]
+        if cfg.opener_shoot_in_view and best.target is None:
+            # G1: on the way to a cube or a laser, shoot a drone or crate already in view, from where we are
+            # (no detour): drones 50-110 m (outside their 45 m aggro), crates within opener_crate_shoot
+            shots = [(dist2(n["pos"], pos), n, "npc") for n in npcs
+                     if lo <= dist2(n["pos"], pos) <= hi and inside(n["pos"])]
+            shots += [(dist2(c["pos"], pos) + 20, c, "crate") for c in obs.get("crates", [])
+                      if dist2(c["pos"], pos) <= cfg.opener_crate_shoot and inside(c["pos"])]
+            if shots:
+                _, tg, tk = min(shots, key=lambda x: x[0])
+                best.target, best.target_kind, best.collect = tg, tk, True   # collect: keep walking, strafe less
+                best.rationale += f" +shoot {tk} (G1)"
+        return best
 
     def _cube_near(self, obs, mem, radius: float) -> Optional[Dict[str, Any]]:
         """E6: nearest cube within radius that lies inside the current zone, unless 2+ mechs are attacking us.

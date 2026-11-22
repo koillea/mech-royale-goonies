@@ -79,6 +79,7 @@ class BotConfig:
     opener_drone_band: tuple = (50.0, 110.0)
     opener_crate_radius: float = 150.0
     opener_crate_shoot: float = 70.0     # walk to within this of a crate, then shoot it
+    opener_shoot_in_view: bool = True    # G1: walking to a cube/laser, shoot an in-view drone or crate on the way
     opener_cube_radius: float = 120.0
     opener_laser_radius: float = 120.0
 
