@@ -14,3 +14,7 @@ def test_upgrade_order(hello):
     assert pick(hello, ["plating", "armor", "gun_rate"]) == EXPECT[0]
     assert pick(hello, ["plating", "laser_charge", "gun_damage"]) == EXPECT[1]
     assert pick(hello, ["servos", "armor", "plating"]) == EXPECT[2]
+
+
+def test_h6b_pierce_before_plating(hello):
+    assert pick(hello, ["plating", "laser_pierce", "armor"]) == "laser_pierce"
