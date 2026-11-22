@@ -277,15 +277,33 @@ Full matches (sim, same seeds, omniscient house bots):
 | id | commit | change | score | kills | cubes 20 s / 60 s / end | max armour | rear hits | max ms | board |
 |---|---|---|---|---|---|---|---|---|---|
 | champ-3.81 | `85b2a8481b793f283804987b5e1ac7cb7108a389` | - | 3.25 (40 seeds) | 2.02 | 0.88 / 1.62 / 2.27 | 1,552 | 4.2 | 18.6 | 3.81 |
-| O1 | `9a6da6b9b4cf2a1e110c98f47fa6e94894d9bf66` | lead with acceleration, gravity, strafe rhythm | 3.42 (+0.17, se 0.54) | 2.40 | 0.88 / 1.48 / 2.88 | 1,599 | 4.9 | 13.0 | pending |
+| O1 | `9a6da6b9b4cf2a1e110c98f47fa6e94894d9bf66` | lead with acceleration, gravity, strafe rhythm | 3.42 (+0.17, se 0.54) | 2.40 | 0.88 / 1.48 / 2.88 | 1,599 | 4.9 | 13.0 | 3.54: below, REVERTED |
 | O2 | `f37a2749c1a27d44791fac223c7bac01b8f614c7` | on O1: no cover/retreat, lock-on, engage all in range, close to 30-70 m, D1 legs | **1.88 (-1.38, se 0.46: WORSE)**; 65 % dead in the first minute | 1.40 | 0.45 / 1.15 / 1.20 | 1,490 | 5.6 | 14.7 | pending |
-| C1 | `251394ff0b44a2b206082df31060e382b2590a39` | first 60 s: drones from 50-110 m, crates, cubes <= 120 m, laser; plating/armour then gun upgrades | **4.60 (+1.35, se 0.76)** | 3.12 | 1.10 / 3.35 / 5.80 | 1,785 | 5.6 | 19.8 | pending |
-| M1 | `305638e77d9aa6b3788a713801324a990a9be1ef` | separate ~300-line cube-first bot, no map (30 seeds) | 2.73 (-0.37 vs 3.10, se 0.75) | 1.87 | 0.57 / 2.33 / 3.87 | 1,692 | 7.2 | 0.6 | pending |
+| C1 | `251394ff0b44a2b206082df31060e382b2590a39` | first 60 s: drones from 50-110 m, crates, cubes <= 120 m, laser; plating/armour then gun upgrades | **4.60 (+1.35, se 0.76)** | 3.12 | 1.10 / 3.35 / 5.80 | 1,785 | 5.6 | 19.8 | **4.19: NEW CHAMPION -> champ-4.19** (+0.38) |
+| M1 | `305638e77d9aa6b3788a713801324a990a9be1ef` | separate ~300-line cube-first bot, no map (30 seeds) | 2.73 (-0.37 vs 3.10, se 0.75) | 1.87 | 0.57 / 2.33 / 3.87 | 1,692 | 7.2 | 0.6 | 3.69: below, not adopted |
 | M2 | `4aa32ed6fdd64b61c976bcbeb451ea98913a17b5` | M1 + fight range 120 m | 2.80 (-0.30, se 0.77) | 1.87 | 0.37 / 1.77 / 3.03 | 1,659 | 4.7 | 0.5 | pending |
 | M3 | `802d0b980514bc284c2ed3c5f887a721b8b0df37` | M1 + no farming after 90 s | 2.67 (-0.43, se 0.71) | 2.03 | 0.57 / 2.33 / 3.13 | 1,647 | 5.6 | 1.3 | pending |
 
 M1 time in each mode (sim): FIGHT 33 %, CUBE 21 %, ROAM 10 %, DRONE 9 %, ZONE 8 %, CRATE 7 %, PICKUP 7 %, HEAL 5 %.
 All pass kit check.py in Docker (max 5.6-7.0 ms for O/C, 1.1-2.8 ms for M). C2 and C3 are not built yet.
+
+## C2-C6 - single changes on champ-4.19 (= C1, `251394ff0b44a2b206082df31060e382b2590a39`)
+
+Rule from Sun Nov 22: the sim has mispredicted the board almost every time, so sim scores no longer decide
+anything. The sim only confirms that a change does what it says; the board decides. Sim: 40 seeds,
+omniscient house bots, same seeds as champ-4.19.
+
+| id | branch / commit | change | behaviour check (champ-4.19 -> change) | cubes 20 s / 60 s / end | kills | rear hits | Docker max | board |
+|---|---|---|---|---|---|---|---|---|
+| champ-4.19 | `251394ff0b44a2b206082df31060e382b2590a39` | C1 cube opener | target switches 5.0/match | 1.10 / 3.35 / 5.80 | 3.12 | 5.6 | 5.9 ms | 4.19 |
+| C2 | c2 `2cce593f3a689a91c605102a88f6c0c8b0d468ec` | focus fire: keep the lock until dead or out of sight 2 s, switch only to < 40 % HP | **switches 5.0 -> 1.2** | 1.10 / 3.38 / 5.33 | 2.48 | 7.2 | 6.4 ms | pending |
+| C3 | c3 `bb92088d664c01df6ed74a86c3590e2d275d7c81` | heal break: 2+ attackers in 3 s and HP < 50 %: cover facing them, hold fire, until 5 s without damage | **1.5 heal breaks/match**; COVER time 8 -> 12 %; dead in first 60 s 30 -> 20 % | 1.10 / 3.35 / 6.05 | 3.05 | 5.5 | 6.2 ms | pending |
+| C4 | c4 `a660c5d51611449cabb847396140e0ec09a97300` | cube opener 120 s (was 60) | **cubes at end 5.8 -> 6.3**, LOOT time 26 -> 34 %, laser by 2:00 35 -> 47 % | 1.10 / 3.35 / 6.28 | 2.95 | 6.6 | 7.6 ms | pending |
+| C5 | c5 `930e6f7354190dd3853ec5493e65f7d1afe85ef3` | opener goes up to 150 m for a laser (was 120) | **no change in any of 40 sim matches** (a laser seen at 120-150 m never came up); unit test confirms the rule | 1.10 / 3.35 / 5.80 | 3.12 | 5.6 | 6.8 ms | pending |
+| C6 | c6 `f0773fde4f042ab0930a1cc7324dec49053ac071` | after every kill, go collect its cubes (still fighting) | **cubes within 20 s of a kill 2.95 -> 3.83**, cubes at 60 s 3.35 -> 3.75 | 1.10 / 3.75 / 6.20 | 2.85 | 5.1 | 5.4 ms | pending |
+
+Sim max decision time: 12-17 ms for all; one C6 run showed 30 ms with 6 versions in parallel, 16.9 ms when rerun
+alone on the same seeds (machine load, not the bot). All pass kit check.py in Docker.
 
 ## Board results (all official runs, 48 matches each)
 

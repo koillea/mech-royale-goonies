@@ -311,6 +311,12 @@ class Match:
             if not m.house:
                 pl = getattr(m.ctrl, "last_plan", None)
                 m.mode_hist.append((self.t, getattr(pl, "mode", None) or getattr(m.ctrl, "mode", None)))
+                tg = getattr(pl, "target", None) if getattr(pl, "target_kind", None) == "mech" else None
+                if tg is not None:
+                    prev = getattr(m, "last_tgt", None)
+                    if prev is not None and prev != tg["id"] and any(o.id == prev and o.alive for o in self.mechs):
+                        m.tgt_switches = getattr(m, "tgt_switches", 0) + 1     # switched away from a live target
+                    m.last_tgt = tg["id"]
                 m.hp_hist.append((self.t, m.hp, m.energy))
                 if len(m.hp_hist) > 200:
                     del m.hp_hist[:50]
@@ -952,6 +958,7 @@ class Match:
         m.place = self._place_base
         if killer is not None and killer is not m:
             killer.kills += 1
+            killer.kill_t = getattr(killer, "kill_t", []) + [self.t]
             if killer.id in m.first_hit:
                 killer.ttk.append(self.t - m.first_hit[killer.id])
             killer.events.append({"type": "kill", "target": m.id})
