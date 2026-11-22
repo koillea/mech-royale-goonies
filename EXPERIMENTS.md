@@ -412,10 +412,14 @@ Score 4.68, median death 106 s, dead in the first minute 27 %, full HP to dead w
 
 | id | branch / commit | change | tests | board |
 |---|---|---|---|---|
-| J6 | j6 `b52fe9214a7419499ba818a8e8e943aad8e68b4c` | with 2+ attackers, shoot the lowest-HP attacker first | pass | pending |
-| J7 | j7 `48721352ad10f2de65ea1c1d2d3c4f98cb2cef83` | no walk to a kill's cubes while 2+ mechs engage us (resumes after) | pass | pending |
-| J8 | j8 `6778638d2c222fe4d7136ed53c0780a948a6dd7f` | opener: a drone in view comes before every crate | pass | pending |
-| J9 | j9 `33e9de778a97d8ebc65527202f4637f549cee4fc` | opener: fight a mech within 90 m first instead of farming past it (first-minute deaths: first hit at ~9 s from a hunter we ignored) | pass | pending |
+| J6 | j6 `b52fe9214a7419499ba818a8e8e943aad8e68b4c` | with 2+ attackers, shoot the lowest-HP attacker first | pass; sim: switches 3.9 -> 3.7, otherwise as H3 (40 seeds) | pending |
+| J7 | j7 `48721352ad10f2de65ea1c1d2d3c4f98cb2cef83` | no walk to a kill's cubes while 2+ mechs engage us (resumes after) | pass; sim: outnumbered deaths 0.80 -> 0.62, but cubes within 20 s of a kill 5.0 -> 4.2, missed kills 0.33 -> 0.57 | pending |
+| J8 | j8 `6778638d2c222fe4d7136ed53c0780a948a6dd7f` | opener: a drone in view comes before every crate | pass; sim: cubes 7.35 -> 7.85, cubes within 20 s of a kill 5.0 -> 5.5 | pending |
+| J9 | j9 `33e9de778a97d8ebc65527202f4637f549cee4fc` | opener: fight a mech within 90 m first instead of farming past it (first-minute deaths: first hit at ~9 s from a hunter we ignored) | pass; sim: first-minute deaths 30 -> 25 %, rear hits 5.9 -> 4.8; cubes at 20 s 1.18 -> 0.97 | pending |
+
+Real-game run from this container stopped after 3 matches: observations arrive in ~4 s bursts (40-50 at
+once) through the sandbox's network path, so H3 reacts to data up to 4 s old. Those matches are not
+representative; the bridge in tools/real/ needs to run on a machine with a direct connection.
 
 Docker check.py: J6 5.8 ms, J7 5.3 ms, J8 6.2 ms, J9 5.7 ms max, all PASS.
 
