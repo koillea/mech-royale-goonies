@@ -316,11 +316,15 @@ Sim: 40 seeds, behaviour check only (the board decides).
 
 | id | branch / commit | change | behaviour check (champ-4.42 -> change) | kills | rear hits | Docker max | board |
 |---|---|---|---|---|---|---|---|
-| champ-4.42 | `f0773fde4f042ab0930a1cc7324dec49053ac071` | C6 kill cubes | cubes 6.20/match, 3.83 within 20 s of a kill | 2.85 | 5.1 | 5.4 ms | 4.42 |
-| C8 | c8 `b915983b04cf35c01c366e65527e3cb5aec46597` | after the kill's cubes, collect other visible cubes within 60 m unless hit in the last 1.5 s | **cubes 6.20 -> 6.72, within 20 s of a kill 3.83 -> 4.22** | 3.05 | 5.5 | 7.3 ms | pending |
+| champ-4.42 | `f0773fde4f042ab0930a1cc7324dec49053ac071` | C6 kill cubes | cubes 6.20/match, 3.83 within 20 s of a kill | 2.85 | 5.1 | 5.4 ms | 4.42, 4.33 (two runs, avg ~4.38) |
+| C8 | c8 `b915983b04cf35c01c366e65527e3cb5aec46597` | after the kill's cubes, collect other visible cubes within 60 m unless hit in the last 1.5 s | **cubes 6.20 -> 6.72, within 20 s of a kill 3.83 -> 4.22** | 3.05 | 5.5 | 7.3 ms | 4.23: below champ-4.42, DROPPED |
 | C9 | c9 `316efa639796afad398fd2c89ed6750925140cb7` | target score + 40 per cube the target carries (attackers still +1000) | **no change in any of 40 matches**: sim house bots carry ~0.1 cubes (they do not farm); unit test confirms the rule | 2.85 | 5.1 | 6.5 ms | pending |
 | C6+C3 | c6c3 `599e4094ae64b262eb795b4d12d30c6726c0fe7d` | combination (for if C3 beats 4.19) | heal breaks 1.7/match | **2.45** | **6.2** | 8.3 ms | pending |
 | C6+C3+C4 | c6c3c4 `a03bf47a840dc366df57fc66d01efdc7a11ad61e` | combination (for if C3 and C4 beat 4.19) | heal breaks 1.8/match, cubes 6.50 | **2.20** | **7.4** | 5.5 ms | pending |
+
+Pattern (Sun Nov 22, board): changes that pull the bot away from fights to collect or look around score worse
+(C7 sweep/boost opener 4.04, C8 after-kill sweep 4.23); picking up the cubes right at the kill spot helps
+(C6 4.42 / 4.33). C2 (3.69) showed that facing a new attacker matters more than finishing the current target.
 
 Warning: both combinations show the pattern that preceded C2's drop (kills down, rear hits up). C3 turns away
 from attackers to break line of sight.
