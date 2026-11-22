@@ -373,9 +373,9 @@ The offer holds 3 choices and weapon upgrades appear only for weapons we hold; w
 | H3 | h3 `2bb15d471801db693776441fc2a689769b3fe1a6` | no laser held, one within 60 m, no hits for 2 s: go take it (keep the target) | laser by 2:00 50 -> 55 %, ever held 55 -> 57 % (rare case) | 3.40 | 7.45 | 6.0 | 5.1 ms | **4.79, 4.83 (avg ~4.81): FINAL CHAMPION -> champ-4.83** |
 | H4 | h4 `da9a8d36e9d08e4eb089819813228f0746711530` | pre-charge the laser while standing (HOLD/PERCH), not hit for 2 s, a mech in laser range: face it and charge, so the fight opens with 315 | **1.8 pre-charges/match, laser shots 7.4 -> 8.7, laser hit rate 75 -> 66 %** | 3.17 | 6.88 | 7.0 | 6.8 ms | 4.71 (on H2); dropped with H3+H4 |
 | H3+H4 | h3h4 `3252c5a5e4fe77ca975d30072fed04510f574502` | H4's pre-charge on top of H3 | 1.9 pre-charges/match, laser shots 8.3 -> 9.6, laser hit rate 78 -> 70 % (vs H3) | 3.48 | 7.30 | 6.1 | 5.6 ms | 4.65: below champ-4.83, DROPPED (H4 pre-charge dropped entirely) |
-| H5 | h5 `ad864e716b155103996113ede90596bb3fb2b166` | on champ-4.83: laser grab in a lull out to 90 m (was 60) | no measurable change in 40 seeds (laser by 2:00 55 % both; a laser at 60-90 m in a lull is rare in the sim); unit test confirms | 3.38 | 7.42 | 5.8 | 5.1-11.5 ms | pending |
+| H5 | h5 `ad864e716b155103996113ede90596bb3fb2b166` | on champ-4.83: laser grab in a lull out to 90 m (was 60) | no measurable change in 40 seeds (laser by 2:00 55 % both; a laser at 60-90 m in a lull is rare in the sim); unit test confirms | 3.38 | 7.42 | 5.8 | 5.1-11.5 ms | flat (user) |
 | H6 | - | laser upgrades ahead of plating | **already in champ-4.83** (H2 put laser_damage, laser_charge first): not built | - | - | - | - | - |
-| H6b | h6b `ad823da9888f4a24982a643de8fad8bba5202347` | on champ-4.83: laser_pierce joins the laser-first upgrades (was unlisted) | laser_pierce picks too rare to show in 40 seeds; unit test confirms | 3.40 | 7.40 | 6.2 | 5.1 ms | pending |
+| H6b | h6b `ad823da9888f4a24982a643de8fad8bba5202347` | on champ-4.83: laser_pierce joins the laser-first upgrades (was unlisted) | laser_pierce picks too rare to show in 40 seeds; unit test confirms | 3.40 | 7.40 | 6.2 | 5.1 ms | flat (user) |
 
 From Sun Nov 22 (user): build all further changes on H3, not H2.
 
@@ -383,6 +383,30 @@ H4 design note: the request said "a full laser shot before switching to the gun"
 ready laser already charges the moment a target appears, so holding the gun back would only lose ~75 damage per
 engagement; the gain is in charging before the engagement, which is what H4 does. Charging halves move speed, so
 it only pre-charges while standing.
+
+## J1-J5 - unused rules, single changes on champ-4.83 (= H3, `2bb15d471801db693776441fc2a689769b3fe1a6`)
+
+Sim additions for these checks: supply drops (protocol section 7: called at 70/140/210 s, land 25 s later inside
+the closing circle, 4 s alone in an 8 m ring = 3 cubes + full HP + full energy) and laser cook-off (+60 % to a
+mech carrying a mortar); telemetry for drops captured, cook-offs taken, time holding a mortar, drone damage to
+house bots. The sim house bots do not contest drops (unknown for the real ones).
+
+| id | branch / commit | change | behaviour check (H3 -> change, 40 seeds) | kills | cubes | rear hits | Docker max | board |
+|---|---|---|---|---|---|---|---|---|
+| J1 | j1 `79a8db1259aef781db2a5a10c4724fb3bc5b7aba` | capture a supply drop landing within 150 m when no mech has hit us for 3 s (timed to arrive as it lands); once in the ring stay, fighting | **drops captured 0 -> 0.15/match** (median death ~106 s; drops land at 95/165/235 s) | 3.62 | 7.90 | 5.7 | 5.8 ms | pending |
+| J2 | j2 `756c5a1df859670ec7152897b090c1acebda09cf` | never take a mortar; drop one we hold | **time holding a mortar 10 % -> 0**; cook-offs taken 0 in both (sim house lasers never hit us while we carried one) | 3.65 | 7.62 | 5.9 | 7.6 ms | pending |
+| J3 | j3 `17715db452e71f8d5bb25b3b96f20c5386587853` | B2 drone kiting (98ba5b5) ported onto H3 unchanged | **drone damage to house bots 2,470 -> 3,008/match (+22 %)**, KITE 5 % of time, missed kills 0.33 -> 0.17 | 3.65 | 7.40 | 6.3 | 6.0 ms | pending |
+| J4 | j4 `9a94da5318421f8ecc365ae0e65ca6287590bec5` | last 60 s with <= 4 alive: start no new fights (answer attacks) | **identical to H3 in all 40 seeds**: the case never arises in the sim (we reach the end in ~5 %); unit test confirms | 3.58 | 7.35 | 5.9 | 6.4 ms | pending |
+| J5 | j5 `f9e377abf9f8f09ce41d5579f9e89102fa899701` | sensors right after the laser upgrades, before plating | **sensors 0.23 -> 0.55/match, rear hits 5.90 -> 5.35** | 3.02 | 6.53 | 5.35 | 6.9 ms | pending |
+
+### H3's causes of death (sim, 60 seeds, omniscient squad)
+
+Score 4.68, median death 106 s, dead in the first minute 27 %, full HP to dead within 15 s 47 %.
+1. **Outnumbered in FIGHT, in the open, at close range.** 96 % of lost points die in FIGHT; 2+ mechs hitting us
+   in 85 % (2: 40 %, 3: 34 %, 4+: 10 %); 76 % in the open; killer within 75 m in 74 % (within 50 m: 48 %).
+2. **Gun deaths at 50-75 m**: killed by gun 68 %, laser 18 %, lightning 12 %.
+3. **First-minute deaths (16 of 60)**: all FIGHT, mostly 2-3 engagers, first hit at ~9 s, dead at ~37 s; in 5 of
+   the 16 the plan at death was "FIGHT +kill cubes" (walking to a kill's cubes while others close in).
 
 ## Board results (all official runs, 48 matches each)
 

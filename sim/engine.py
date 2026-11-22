@@ -14,7 +14,7 @@ is NOT the real server: it exists to compare bot versions without spending submi
 - Vision (near range all round, 200 m in the 120 degree cone, line of sight vs buildings; canopy ignored),
   5 s memory, sounds with bearing noise and near/mid/far, events (damaged, hit, kill, pickup, took, upgrade).
 - NPC drones that shoot mechs inside 45 m (or whoever hit them) and drop 2 cubes.
-Not modelled: supply drops, mortar concussion/knock-back, laser cook-off, lightning short, eaves/bridges,
+Supply drops and laser cook-off are modelled (Sun Nov 22). Not modelled: mortar concussion/knock-back, lightning short, eaves/bridges,
 mech-mech pushing, trees. Placement: death order; at 480 s survivors are ranked by HP.
 """
 from __future__ import annotations
@@ -311,6 +311,8 @@ class Match:
             if not m.house:
                 pl = getattr(m.ctrl, "last_plan", None)
                 m.mode_hist.append((self.t, getattr(pl, "mode", None) or getattr(m.ctrl, "mode", None)))
+                if any(w and w["kind"] == "mortar" for w in m.slots):
+                    m.mortar_dec = getattr(m, "mortar_dec", 0) + 1
                 tg = getattr(pl, "target", None) if getattr(pl, "target_kind", None) == "mech" else None
                 if tg is not None:
                     prev = getattr(m, "last_tgt", None)
@@ -491,7 +493,7 @@ class Match:
             "crates": [{"id": c["id"], "pos": list(c["pos"]), "hp": c["hp"]} for c in self.crates if c["id"] in vc],
             "cubes": [{"id": c["id"], "pos": list(c["pos"])} for c in self.cubes if c["id"] in vq],
             "pickups": [{"id": p["id"], "kind": p["kind"], "pos": list(p["pos"])} for p in self.pickups if p["id"] in vp],
-            "sounds": list(m.sounds), "beams": list(m.beams), "events": list(m.events), "drops": [],
+            "sounds": list(m.sounds), "beams": list(m.beams), "events": list(m.events), "drops": self._drops_obs(),
             "zone": self._zone_obs(), "offer": offer,
         }
 
@@ -528,6 +530,7 @@ class Match:
         self._projectiles()
         self._npcs()
         self._collect()
+        self._supply_drops()
 
     def _move(self, m: Mech):
         s, c = m.stats, m.cmd
@@ -739,6 +742,11 @@ class Match:
         end = [p[0] + d[0] * ws["range"], p[1] + d[1] * ws["range"], p[2] + d[2] * ws["range"]]
         if hit is not None:
             end = [p[0] + d[0] * hit[2], p[1] + d[1] * hit[2], p[2] + d[2] * hit[2]]
+            if hit[0] == "mech" and any(w and w["kind"] == "mortar" for w in hit[1].slots) \
+                    and not (m.house and hit[1].house):
+                dmg *= 1 + ws.get("cookoff", 0.6)          # protocol: cook-off +60 % to a mech holding a mortar
+                hit[1].events.append({"type": "effect", "effect": "cookoff", "by": m.id})
+                hit[1].cookoffs = getattr(hit[1], "cookoffs", 0) + 1
             self._hit(m, hit[0], hit[1], dmg, "laser", p)
             if hit[0] == "mech" and cls:
                 m.hit_cls[cls] = m.hit_cls.get(cls, 0) + 1
@@ -921,6 +929,8 @@ class Match:
         m.dmg_taken += dmg
         m.last_combat = self.t
         by = att.id if att is not None else npc_id
+        if weapon == "npc" and m.house:
+            self.telemetry["drone_dmg_house"] = self.telemetry.get("drone_dmg_house", 0.0) + dmg
         src = att.pos if att is not None else origin
         m.dmg_log.append((self.t, by, weapon, dmg, None if src is None else math.hypot(src[0] - m.pos[0], src[1] - m.pos[1])))
         if att is not None and not att.house and m.house:
@@ -979,6 +989,56 @@ class Match:
         a, d = self.rng.uniform(-math.pi, math.pi), self.rng.uniform(0, 3)
         x, y = p[0] + math.cos(a) * d, p[1] + math.sin(a) * d
         self.cubes.append({"id": self._nid("cube"), "pos": [x, y, self.support(x, y, p[2] + 1)]})
+
+    def _supply_drops(self):
+        """Protocol section 7: called at drops.times, lands fall_s later on open ground inside the closing circle;
+        stand in the ring alone capture_s to gain 3 cubes, full HP and full energy; 2+ in the ring freezes the
+        clock; an empty ring or a different sole mech restarts it."""
+        dr = self.rules.get("drops")
+        if not dr:
+            return
+        if not hasattr(self, "sdrops"):
+            self.sdrops, self.sdrop_called = [], 0
+        times = dr["times"]
+        while self.sdrop_called < len(times) and self.t >= times[self.sdrop_called]:
+            self.sdrop_called += 1
+            for _ in range(200):
+                a = self.rng.uniform(-math.pi, math.pi)
+                r = self.nr * dr.get("spread", 0.7) * math.sqrt(self.rng.random())
+                x, y = self.nc[0] + math.cos(a) * r, self.nc[1] + math.sin(a) * r
+                if self.wm.free(x, y):
+                    break
+            self.sdrops.append({"id": 20000 + self.sdrop_called - 1, "pos": [x, y, self.wm.ground(x, y)],
+                                "radius": dr["radius"], "land_t": self.t + dr["fall_s"], "capture_s": dr["capture_s"],
+                                "progress": 0.0, "holder": None})
+        for d in list(self.sdrops):
+            if self.t < d["land_t"]:
+                continue
+            inside = [m for m in self.mechs if m.alive and math.hypot(m.pos[0] - d["pos"][0], m.pos[1] - d["pos"][1]) <= d["radius"]]
+            if len(inside) == 1:
+                m = inside[0]
+                if d["holder"] != m.id:
+                    d["holder"], d["progress"] = m.id, 0.0
+                d["progress"] += DT
+                if d["progress"] >= d["capture_s"]:
+                    self.sdrops.remove(d)
+                    for _ in range(int(dr["cubes"])):
+                        m.cubes += 1
+                        if m.cubes <= self.rules["cubes"]["stat_cap"]:
+                            gain = self.rules["mech"]["hp"] * self.rules["cubes"]["hp_per_cube"]
+                            m.max_hp += gain
+                        m.cube_t = getattr(m, "cube_t", []) + [self.t]
+                        self._maybe_offer(m)
+                    m.hp, m.energy = m.max_hp, m.stats["energy"]
+                    m.events.append({"type": "drop", "id": d["id"], "cubes": m.cubes})
+                    m.drops_captured = getattr(m, "drops_captured", 0) + 1
+            elif not inside:
+                d["holder"], d["progress"] = None, 0.0
+
+    def _drops_obs(self):
+        return [{"id": d["id"], "pos": list(d["pos"]), "radius": d["radius"],
+                 "lands_in": round(max(d["land_t"] - self.t, 0.0), 2), "capture_s": d["capture_s"],
+                 "progress": round(d["progress"], 2), "holder": d["holder"]} for d in getattr(self, "sdrops", [])]
 
     def _collect(self):
         if self.tick % 2:
