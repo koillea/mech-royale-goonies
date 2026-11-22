@@ -70,9 +70,14 @@ class BotConfig:
     opener_drone_radius: float = 120.0
     opener_drone_band: tuple = (50.0, 110.0)
     opener_crate_radius: float = 150.0
-    opener_crate_shoot: float = 70.0     # walk to within this of a crate, then shoot it
+    opener_crate_shoot: float = 45.0     # walk to within this of a crate, then shoot it (C7: was 70)
     opener_cube_radius: float = 120.0
-    opener_laser_radius: float = 120.0
+    opener_laser_radius: float = 130.0   # C7: was 120
+    # C7 faster opener: sweep the torso (turn rate 4 rad/s = 0.4 rad per decision: a full turn in 1.6 s) while
+    # nothing is targeted, and remember what the sweep saw so goals do not flicker as items leave the view cone
+    fast_opener: bool = True
+    opener_sweep: float = 0.4
+    opener_memory_s: float = 15.0
 
     # --- NPC drones aggro at 45 m with line of sight (section 7 NPC drones)
     npc_avoid: float = 55.0

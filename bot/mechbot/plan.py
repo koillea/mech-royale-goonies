@@ -178,6 +178,9 @@ class HeuristicPlanner:
         def inside(p) -> bool:
             return math.hypot(p[0] - cx, p[1] - cy) < cr - 8.0
 
+        if cfg.fast_opener:
+            obs, npcs = self._opener_memory(obs, npcs, pos, t)
+
         cands: List[Tuple[float, Plan]] = []
         for c in obs.get("cubes", []):
             d = dist2(c["pos"], pos)
@@ -193,6 +196,13 @@ class HeuristicPlanner:
         lo, hi = cfg.opener_drone_band
         for n in npcs:
             d = dist2(n["pos"], pos)
+            if n.get("_mem"):              # C7: seen during the sweep, out of view now: walk into the band
+                if d < cfg.opener_drone_radius + 50 and inside(n["pos"]):
+                    ux, uy = (pos[0] - n["pos"][0]) / max(d, 1e-6), (pos[1] - n["pos"][1]) / max(d, 1e-6)
+                    g = (n["pos"][0] + ux * (hi - 15), n["pos"][1] + uy * (hi - 15)) if d > hi else None
+                    if g is not None:
+                        cands.append((d + 5, Plan("LOOT", goal=g, rationale=f"OPENER drone (seen) {d:.0f}m")))
+                continue
             if d < cfg.opener_drone_radius and inside(n["pos"]):
                 ux, uy = (pos[0] - n["pos"][0]) / max(d, 1e-6), (pos[1] - n["pos"][1]) / max(d, 1e-6)
                 if d > hi:
@@ -206,11 +216,51 @@ class HeuristicPlanner:
             d = dist2(c["pos"], pos)
             if d < cfg.opener_crate_radius and inside(c["pos"]):
                 g = (c["pos"][0], c["pos"][1]) if d > cfg.opener_crate_shoot else None
+                if c.get("_mem"):
+                    if g is not None:
+                        cands.append((d + 20, Plan("LOOT", goal=g, rationale=f"OPENER crate (seen) {d:.0f}m")))
+                    continue
                 cands.append((d + 20, Plan("LOOT", goal=g, target=c, target_kind="crate",
                                            rationale=f"OPENER crate {d:.0f}m")))
         if not cands:
             return None
         return min(cands, key=lambda x: x[0])[1]
+
+    def _opener_memory(self, obs, npcs, pos, t):
+        """C7: items are listed only while in view and the torso sweeps, so remember cubes, crates, lasers and
+        drones seen in the last opener_memory_s. Forget one once we are close to where it was and do not see
+        it (collected, destroyed or moved). Remembered items carry _mem=True (no shooting what we cannot see)."""
+        cfg = self.cfg
+        if not hasattr(self, "seen_items"):
+            self.seen_items = {}
+        mem = self.seen_items
+        vis = {}
+        for kind, lst in (("cube", obs.get("cubes", [])), ("crate", obs.get("crates", [])),
+                          ("pickup", obs.get("pickups", [])), ("npc", npcs)):
+            for it in lst:
+                vis[(kind, it["id"])] = it
+                mem[(kind, it["id"])] = (dict(it), t)
+        for k, (it, ts) in list(mem.items()):
+            if k in vis:
+                continue
+            close = dist2(it["pos"], pos) < (6.0 if k[0] in ("cube", "pickup") else 25.0)
+            if t - ts > cfg.opener_memory_s or (close and t - ts > 1.0):
+                del mem[k]
+        out = {"cubes": [], "crates": [], "pickups": []}
+        new_npcs = list(npcs)
+        for k, (it, ts) in mem.items():
+            if k in vis:
+                continue
+            it = dict(it, _mem=True)
+            if k[0] == "npc":
+                new_npcs.append(it)
+            else:
+                out[k[0] + "s"].append(it)
+        o2 = dict(obs)
+        o2["cubes"] = list(obs.get("cubes", [])) + out["cubes"]
+        o2["crates"] = list(obs.get("crates", [])) + out["crates"]
+        o2["pickups"] = list(obs.get("pickups", [])) + out["pickups"]
+        return o2, new_npcs
 
     def _cube_near(self, obs, mem, radius: float) -> Optional[Dict[str, Any]]:
         """E6: nearest cube within radius that lies inside the current zone, unless 2+ mechs are attacking us.

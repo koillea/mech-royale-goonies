@@ -318,7 +318,8 @@ class MechBot:
                         mx, my = math.cos(a), math.sin(a)
                         break
 
-        climbing = self.hold is not None and self.hold.climbing and plan.mode not in ("COVER", "ROTATE")
+        climbing = self.hold is not None and self.hold.climbing and plan.mode not in ("COVER", "ROTATE") \
+            and not (self.cfg.fast_opener and plan.rationale.startswith("OPENER"))   # C7: opener moves first
         if climbing:
             cx, cy, cb, cj = self._climb(obs, mx, my, boost, jump)
             return (cx, cy), cb, cj
@@ -470,6 +471,10 @@ class MechBot:
         muzzle = [pos[0], pos[1], pos[2] + st.get("muzzle_height", 7.0)]
         cur_yaw, cur_pitch = me["aim"]
         tgt = plan.target
+        if tgt is None and cfg.fast_opener and t < cfg.opener_s and not self.mem.recent_damage_bearing(t, 3.0):
+            # C7: vision is a 120 degree cone; sweep the torso all the way round to spot drones, crates, cubes
+            fire = [bool(w and w["kind"] == "laser" and w.get("charge", 0) > 0) for w in ws]
+            return (wrap(cur_yaw + cfg.opener_sweep), 0.0), fire, False
         if tgt is None:
             if plan.face_bearing is not None:
                 yaw = plan.face_bearing
