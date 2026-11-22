@@ -349,11 +349,22 @@ items (-).
 | id | branch / commit | change | behaviour check (F1 -> change, 40 seeds) | cubes 20 s / 60 s / end | kills | rear hits | Docker max | board |
 |---|---|---|---|---|---|---|---|---|
 | G1 | g1 `31d3c4bb2db834f3a2e571f4e9789afac434ea03` | opener: walking to a cube or laser, shoot a drone (50-110 m) or crate (<= 70 m) already in view, no detour | **cubes at 20 s 1.10 -> 1.38, at 60 s 3.92 -> 4.30** | 1.38 / 4.30 / 7.12 | 3.10 | 5.6 | 5.3 ms | 4.40: no gain over champ-4.50, DROPPED |
-| G2 (= F4) | f4 `00308ff38d78fa163c4f79d6595ce607719b7dcd` | no spacing back-off: a mech inside the range band is held (strafe only), not backed off | unit test: F1 backs off west at -0.4, G2 holds; sim kills 3.30 -> 2.83 | 1.07 / 3.77 / 6.70 | 2.83 | 6.3 | 5.3 ms | pending |
+| G2 (= F4) | f4 `00308ff38d78fa163c4f79d6595ce607719b7dcd` | no spacing back-off: a mech inside the range band is held (strafe only), not backed off | unit test: F1 backs off west at -0.4, G2 holds; sim kills 3.30 -> 2.83 | 1.07 / 3.77 / 6.70 | 2.83 | 6.3 | 5.3 ms | 4.33: no gain, DROPPED |
 | F1+F3 | f1f3 `eb20007417401798a4be41b65ad840d861e05213` | built before F3's board result; obsolete (F3 dropped) | - | 0.60 / 2.17 / 3.85 | 2.40 | 4.5 | 5.4 ms | not to submit |
 
 Timing: sim max 17-25 ms for F1 and G1 alike on rerun (machine load: same seeds, same decisions as earlier 13-14 ms
 runs); Docker check.py reruns 4.9-5.3 ms.
+
+### Upgrade order, single changes on champ-4.50
+
+The offer holds 3 choices and weapon upgrades appear only for weapons we hold; we take ~2.5 upgrades a match
+(sim), so these change roughly one pick a match.
+
+| id | branch / commit | upgrade order | upgrades picked per match (sim, 40 seeds) | kills | cubes | Docker max | board |
+|---|---|---|---|---|---|---|---|
+| champ-4.50 | `2b8da9d75f8269e96f95ac13e1cd2d199df1ffc7` | plating, armor, gun_damage, gun_rate, nanites, laser... | gun 0.75, plating+armor 0.80, laser 0.15 | 3.30 | 7.72 | 5.8 ms | 4.48, 4.50 |
+| H1 | h1 `ea331e3a9581ab710dec3146c94c28fd02165a1b` | gun_damage, gun_rate, plating, armor, ... | **gun 0.95**, plating+armor 0.60, laser 0.15 | 3.17 | 7.47 | 5.7 ms | pending |
+| H2 | h2 `ac09f3c083bbdc0428e0893a2f641ec35a2be440` | laser_damage, laser_charge (only offered with a laser), then as champion | gun 0.63, plating+armor 0.68, **laser 0.45** | 2.98 | 6.83 | 5.7 ms | pending |
 
 ## Board results (all official runs, 48 matches each)
 

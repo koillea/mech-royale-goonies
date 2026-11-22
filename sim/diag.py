@@ -207,6 +207,8 @@ def compare(results, champion):
             mc.update(r["mode_share"])
         tot = sum(mc.values()) or 1
         print(f"time in each mode, {nm}: " + ", ".join(f"{k} {100 * v / tot:.0f}%" for k, v in mc.most_common(9)))
+        uc = collections.Counter(u for r in results[nm] for _, u in r["upgrades"])
+        print(f"upgrades picked per match, {nm}: " + ", ".join(f"{k} {v / len(results[nm]):.2f}" for k, v in uc.most_common(8)))
     if len(names) < 2:
         return
     ch = {r["seed"]: r["pts"] for r in results[champion]}
