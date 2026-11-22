@@ -25,6 +25,11 @@ class BotConfig:
     kill_cubes: bool = True
     kill_cube_s: float = 20.0            # give up on a kill spot after this long
     kill_cube_radius: float = 120.0      # ...or when it is this far away
+    # F3 end the opener at first contact: once any mech has been seen, no more farming (opener, crates, drones,
+    # weapon pickups, cube runs) for the rest of the match, except cubes within contact_cube_radius. C6 (the
+    # cubes at our own kill spot) stays: they are where we already fight.
+    end_opener_at_contact: bool = True
+    contact_cube_radius: float = 15.0
     retreat_hp_frac: float = 0.35        # below this, back away from the fight while still facing it (rear x1.5)
 
     # --- zone (section 9). Hold near the edge of the next circle on our side: shortest moves, fewest fights.
