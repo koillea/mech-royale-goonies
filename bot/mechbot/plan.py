@@ -126,7 +126,8 @@ class HeuristicPlanner:
         hostile = mem.hostile_ids(t, cfg.provoked_s)
         target, kind, why = self._pick_target(obs, mechs, npcs, hostile)
 
-        if cfg.kill_cubes and not urgent and mem.kill_spot is not None:
+        outnumbered = len({i for i in mem.hostile_ids(t, cfg.provoked_s) if i < 100}) >= 2
+        if cfg.kill_cubes and not urgent and mem.kill_spot is not None and not (cfg.kill_cubes_solo and outnumbered):
             kp = self._kill_cubes(obs, mem, target, kind)
             if kp is not None:
                 return kp
