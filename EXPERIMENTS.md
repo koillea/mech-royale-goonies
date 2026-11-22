@@ -348,7 +348,7 @@ items (-).
 
 | id | branch / commit | change | behaviour check (F1 -> change, 40 seeds) | cubes 20 s / 60 s / end | kills | rear hits | Docker max | board |
 |---|---|---|---|---|---|---|---|---|
-| G1 | g1 `31d3c4bb2db834f3a2e571f4e9789afac434ea03` | opener: walking to a cube or laser, shoot a drone (50-110 m) or crate (<= 70 m) already in view, no detour | **cubes at 20 s 1.10 -> 1.38, at 60 s 3.92 -> 4.30** | 1.38 / 4.30 / 7.12 | 3.10 | 5.6 | 5.3 ms | pending |
+| G1 | g1 `31d3c4bb2db834f3a2e571f4e9789afac434ea03` | opener: walking to a cube or laser, shoot a drone (50-110 m) or crate (<= 70 m) already in view, no detour | **cubes at 20 s 1.10 -> 1.38, at 60 s 3.92 -> 4.30** | 1.38 / 4.30 / 7.12 | 3.10 | 5.6 | 5.3 ms | 4.40: no gain over champ-4.50, DROPPED |
 | G2 (= F4) | f4 `00308ff38d78fa163c4f79d6595ce607719b7dcd` | no spacing back-off: a mech inside the range band is held (strafe only), not backed off | unit test: F1 backs off west at -0.4, G2 holds; sim kills 3.30 -> 2.83 | 1.07 / 3.77 / 6.70 | 2.83 | 6.3 | 5.3 ms | pending |
 | F1+F3 | f1f3 `eb20007417401798a4be41b65ad840d861e05213` | built before F3's board result; obsolete (F3 dropped) | - | 0.60 / 2.17 / 3.85 | 2.40 | 4.5 | 5.4 ms | not to submit |
 
