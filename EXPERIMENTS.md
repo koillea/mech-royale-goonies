@@ -296,11 +296,16 @@ omniscient house bots, same seeds as champ-4.19.
 | id | branch / commit | change | behaviour check (champ-4.19 -> change) | cubes 20 s / 60 s / end | kills | rear hits | Docker max | board |
 |---|---|---|---|---|---|---|---|---|
 | champ-4.19 | `251394ff0b44a2b206082df31060e382b2590a39` | C1 cube opener | target switches 5.0/match | 1.10 / 3.35 / 5.80 | 3.12 | 5.6 | 5.9 ms | 4.19 |
-| C2 | c2 `2cce593f3a689a91c605102a88f6c0c8b0d468ec` | focus fire: keep the lock until dead or out of sight 2 s, switch only to < 40 % HP | **switches 5.0 -> 1.2** | 1.10 / 3.38 / 5.33 | 2.48 | 7.2 | 6.4 ms | pending |
+| C2 | c2 `2cce593f3a689a91c605102a88f6c0c8b0d468ec` | focus fire: keep the lock until dead or out of sight 2 s, switch only to < 40 % HP | **switches 5.0 -> 1.2** | 1.10 / 3.38 / 5.33 | 2.48 | 7.2 | 6.4 ms | **3.69: REVERTED.** The sim flagged it (kills 3.12 -> 2.48, rear hits 5.6 -> 7.2): turning to face a new attacker matters more than finishing the current target |
 | C3 | c3 `bb92088d664c01df6ed74a86c3590e2d275d7c81` | heal break: 2+ attackers in 3 s and HP < 50 %: cover facing them, hold fire, until 5 s without damage | **1.5 heal breaks/match**; COVER time 8 -> 12 %; dead in first 60 s 30 -> 20 % | 1.10 / 3.35 / 6.05 | 3.05 | 5.5 | 6.2 ms | pending |
 | C4 | c4 `a660c5d51611449cabb847396140e0ec09a97300` | cube opener 120 s (was 60) | **cubes at end 5.8 -> 6.3**, LOOT time 26 -> 34 %, laser by 2:00 35 -> 47 % | 1.10 / 3.35 / 6.28 | 2.95 | 6.6 | 7.6 ms | pending |
 | C5 | c5 `930e6f7354190dd3853ec5493e65f7d1afe85ef3` | opener goes up to 150 m for a laser (was 120) | **no change in any of 40 sim matches** (a laser seen at 120-150 m never came up); unit test confirms the rule | 1.10 / 3.35 / 5.80 | 3.12 | 5.6 | 6.8 ms | pending |
 | C6 | c6 `f0773fde4f042ab0930a1cc7324dec49053ac071` | after every kill, go collect its cubes (still fighting) | **cubes within 20 s of a kill 2.95 -> 3.83**, cubes at 60 s 3.35 -> 3.75 | 1.10 / 3.75 / 6.20 | 2.85 | 5.1 | 5.4 ms | pending |
+
+| C7 | c7 `5b2cd4477f4902f6a43fbf95dbd573ca947b598c` | faster opener: torso sweep (0.4 rad/decision) while nothing is targeted, 15 s memory of items seen, boost to items > 25 m, crates shot from <= 45 m, laser up to 130 m, opener moves before the roof climb | **cubes at 20 s 1.10 -> 1.48, at 60 s 3.35 -> 4.20**; laser by 2:00 35 -> 62 %; drones in view per decision 0.56 -> 1.01 | 1.48 / 4.20 / 5.75 | 3.40 | 5.9 | 6.4 ms | pending |
+
+C7 note: the sim cannot reach the real game's 6 cubes by 18 s. Its map has ~60 cube sources (12 drones, 36
+crates) over ~1 km2, about 3 sources (~4 cubes) within 120 m of a spawn, so ~2 by 20 s is near its ceiling.
 
 Sim max decision time: 12-17 ms for all; one C6 run showed 30 ms with 6 versions in parallel, 16.9 ms when rerun
 alone on the same seeds (machine load, not the bot). All pass kit check.py in Docker.
