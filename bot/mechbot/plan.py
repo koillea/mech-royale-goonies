@@ -134,6 +134,16 @@ class HeuristicPlanner:
             op = self._opener(obs, npcs, goal)
             if op is not None:
                 return op
+        if cfg.lull_laser and not urgent and t - mem.took_damage_t > cfg.lull_s \
+                and not any(w and w["kind"] == "laser" for w in me["weapons"]):
+            # H3: a laser within lull_laser_radius and nobody hitting us for 2 s: go and take it (fighting on)
+            ls = [p for p in obs.get("pickups", []) if p["kind"] == "laser" and dist2(p["pos"], pos) < cfg.lull_laser_radius]
+            if ls:
+                lp = min(ls, key=lambda p: dist2(p["pos"], pos))
+                dl = dist2(lp["pos"], pos)
+                return Plan("FIGHT" if target is not None else "LOOT", goal=(lp["pos"][0], lp["pos"][1]), take=lp,
+                            target=target, target_kind=kind, collect=target is not None,
+                            rationale=f"LOOT laser in a lull {dl:.0f}m (H3)")
         if urgent:
             if goal is None and not busy:
                 goal = self._center(obs)
