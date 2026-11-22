@@ -52,7 +52,7 @@ def test_loot_prefers_laser_pickup(hello, observations):
     assert p.mode == "LOOT"
     bot = MechBot(hello)
     ids = [w["id"] for w in bot.planner.wanted_pickups(o)]
-    assert 8002 in ids and 8001 in ids
+    assert 8002 in ids and 8001 not in ids      # J2: never a mortar
 
 
 def test_upgrade_pick_prefers_armor(hello, observations):

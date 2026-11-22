@@ -582,6 +582,11 @@ class MechBot:
         pos = me["pos"]
         reach = self.rules.get("loot", {}).get("pickup_radius", 4.0) - 0.3
         ws = me["weapons"]
+        if self.cfg.drop_mortar:
+            mi = next((i for i, w in enumerate(ws) if w and w["kind"] == "mortar"), None)
+            if mi is not None:
+                act["drop"] = mi                   # J2: empty the slot; the mortar stays on the ground
+                return
         for p in self.planner.wanted_pickups(obs):
             if dist2(p["pos"], pos) < reach and abs(p["pos"][2] - pos[2]) < 3.8:
                 if len(ws) > 1 and ws[1] is not None:

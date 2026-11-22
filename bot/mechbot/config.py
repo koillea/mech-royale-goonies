@@ -50,7 +50,9 @@ class BotConfig:
     loot_until_t: float = 260.0          # stop looting once the circles are small and fights are constant
     crate_radius: float = 45.0
     crate_min_hp_frac: float = 0.7
-    weapon_pref: List[str] = field(default_factory=lambda: ["laser", "lightning", "mortar"])
+    # J2: no mortar (a laser hit on a mech carrying one cooks it off, +60 %); one we hold is dropped
+    weapon_pref: List[str] = field(default_factory=lambda: ["laser", "lightning"])
+    drop_mortar: bool = True
     drop_radius: float = 70.0            # contest a supply drop only if it lands this close
 
     # --- position (position.py). Height first: roofs see further, shoot down, sit out of drone reach.
