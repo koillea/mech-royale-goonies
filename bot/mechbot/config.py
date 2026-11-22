@@ -85,6 +85,7 @@ class BotConfig:
     opener_crate_shoot: float = 70.0     # walk to within this of a crate, then shoot it
     opener_cube_radius: float = 120.0
     opener_laser_radius: float = 120.0
+    drones_before_crates: bool = True    # J8: in the opener, a drone in view comes before every crate
 
     # --- NPC drones aggro at 45 m with line of sight (section 7 NPC drones)
     npc_avoid: float = 55.0

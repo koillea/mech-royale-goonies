@@ -240,7 +240,10 @@ class HeuristicPlanner:
                 else:
                     g = None
                 cands.append((d, Plan("FIGHT", goal=g, target=n, target_kind="npc", rationale=f"OPENER drone {d:.0f}m")))
+        drone_in_view = any(p.target_kind == "npc" for _, p in cands)
         for c in obs.get("crates", []):
+            if cfg.drones_before_crates and drone_in_view:
+                break                          # J8: a drone (2 cubes) beats any crate (1 cube)
             d = dist2(c["pos"], pos)
             if d < cfg.opener_crate_radius and inside(c["pos"]):
                 g = (c["pos"][0], c["pos"][1]) if d > cfg.opener_crate_shoot else None
