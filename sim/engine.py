@@ -959,6 +959,7 @@ class Match:
         if killer is not None and killer is not m:
             killer.kills += 1
             killer.kill_t = getattr(killer, "kill_t", []) + [self.t]
+            killer.kill_cubes = getattr(killer, "kill_cubes", []) + [m.cubes]
             if killer.id in m.first_hit:
                 killer.ttk.append(self.t - m.first_hit[killer.id])
             killer.events.append({"type": "kill", "target": m.id})

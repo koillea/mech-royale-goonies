@@ -300,15 +300,30 @@ omniscient house bots, same seeds as champ-4.19.
 | C3 | c3 `bb92088d664c01df6ed74a86c3590e2d275d7c81` | heal break: 2+ attackers in 3 s and HP < 50 %: cover facing them, hold fire, until 5 s without damage | **1.5 heal breaks/match**; COVER time 8 -> 12 %; dead in first 60 s 30 -> 20 % | 1.10 / 3.35 / 6.05 | 3.05 | 5.5 | 6.2 ms | pending |
 | C4 | c4 `a660c5d51611449cabb847396140e0ec09a97300` | cube opener 120 s (was 60) | **cubes at end 5.8 -> 6.3**, LOOT time 26 -> 34 %, laser by 2:00 35 -> 47 % | 1.10 / 3.35 / 6.28 | 2.95 | 6.6 | 7.6 ms | pending |
 | C5 | c5 `930e6f7354190dd3853ec5493e65f7d1afe85ef3` | opener goes up to 150 m for a laser (was 120) | **no change in any of 40 sim matches** (a laser seen at 120-150 m never came up); unit test confirms the rule | 1.10 / 3.35 / 5.80 | 3.12 | 5.6 | 6.8 ms | pending |
-| C6 | c6 `f0773fde4f042ab0930a1cc7324dec49053ac071` | after every kill, go collect its cubes (still fighting) | **cubes within 20 s of a kill 2.95 -> 3.83**, cubes at 60 s 3.35 -> 3.75 | 1.10 / 3.75 / 6.20 | 2.85 | 5.1 | 5.4 ms | pending |
+| C6 | c6 `f0773fde4f042ab0930a1cc7324dec49053ac071` | after every kill, go collect its cubes (still fighting) | **cubes within 20 s of a kill 2.95 -> 3.83**, cubes at 60 s 3.35 -> 3.75 | 1.10 / 3.75 / 6.20 | 2.85 | 5.1 | 5.4 ms | **4.42: NEW BEST -> champ-4.42** |
 
-| C7 | c7 `5b2cd4477f4902f6a43fbf95dbd573ca947b598c` | faster opener: torso sweep (0.4 rad/decision) while nothing is targeted, 15 s memory of items seen, boost to items > 25 m, crates shot from <= 45 m, laser up to 130 m, opener moves before the roof climb | **cubes at 20 s 1.10 -> 1.48, at 60 s 3.35 -> 4.20**; laser by 2:00 35 -> 62 %; drones in view per decision 0.56 -> 1.01 | 1.48 / 4.20 / 5.75 | 3.40 | 5.9 | 6.4 ms | pending |
+| C7 | c7 `5b2cd4477f4902f6a43fbf95dbd573ca947b598c` | faster opener: torso sweep (0.4 rad/decision) while nothing is targeted, 15 s memory of items seen, boost to items > 25 m, crates shot from <= 45 m, laser up to 130 m, opener moves before the roof climb | **cubes at 20 s 1.10 -> 1.48, at 60 s 3.35 -> 4.20**; laser by 2:00 35 -> 62 %; drones in view per decision 0.56 -> 1.01 | 1.48 / 4.20 / 5.75 | 3.40 | 5.9 | 6.4 ms | 4.04: below 4.19, dropped |
 
 C7 note: the sim cannot reach the real game's 6 cubes by 18 s. Its map has ~60 cube sources (12 drones, 36
 crates) over ~1 km2, about 3 sources (~4 cubes) within 120 m of a spawn, so ~2 by 20 s is near its ceiling.
 
 Sim max decision time: 12-17 ms for all; one C6 run showed 30 ms with 6 versions in parallel, 16.9 ms when rerun
 alone on the same seeds (machine load, not the bot). All pass kit check.py in Docker.
+
+## C8, C9 and combinations - on champ-4.42 (= C6, `f0773fde4f042ab0930a1cc7324dec49053ac071`)
+
+Sim: 40 seeds, behaviour check only (the board decides).
+
+| id | branch / commit | change | behaviour check (champ-4.42 -> change) | kills | rear hits | Docker max | board |
+|---|---|---|---|---|---|---|---|
+| champ-4.42 | `f0773fde4f042ab0930a1cc7324dec49053ac071` | C6 kill cubes | cubes 6.20/match, 3.83 within 20 s of a kill | 2.85 | 5.1 | 5.4 ms | 4.42 |
+| C8 | c8 `b915983b04cf35c01c366e65527e3cb5aec46597` | after the kill's cubes, collect other visible cubes within 60 m unless hit in the last 1.5 s | **cubes 6.20 -> 6.72, within 20 s of a kill 3.83 -> 4.22** | 3.05 | 5.5 | 7.3 ms | pending |
+| C9 | c9 `316efa639796afad398fd2c89ed6750925140cb7` | target score + 40 per cube the target carries (attackers still +1000) | **no change in any of 40 matches**: sim house bots carry ~0.1 cubes (they do not farm); unit test confirms the rule | 2.85 | 5.1 | 6.5 ms | pending |
+| C6+C3 | c6c3 `599e4094ae64b262eb795b4d12d30c6726c0fe7d` | combination (for if C3 beats 4.19) | heal breaks 1.7/match | **2.45** | **6.2** | 8.3 ms | pending |
+| C6+C3+C4 | c6c3c4 `a03bf47a840dc366df57fc66d01efdc7a11ad61e` | combination (for if C3 and C4 beat 4.19) | heal breaks 1.8/match, cubes 6.50 | **2.20** | **7.4** | 5.5 ms | pending |
+
+Warning: both combinations show the pattern that preceded C2's drop (kills down, rear hits up). C3 turns away
+from attackers to break line of sight.
 
 ## Board results (all official runs, 48 matches each)
 
