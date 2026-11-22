@@ -55,7 +55,7 @@ def test_cube_beats_crate_and_laser_is_taken(hello, observations):
     assert "laser" in bot.last_plan.rationale
 
 
-def test_a_mech_attack_overrides_the_opener_and_it_ends_at_60s(hello, observations):
+def test_a_mech_attack_overrides_the_opener_and_it_ends_at_120s(hello, observations):
     bot = MechBot(hello)
     o = base(observations)
     me = o["self"]["pos"]
@@ -65,7 +65,7 @@ def test_a_mech_attack_overrides_the_opener_and_it_ends_at_60s(hello, observatio
     bot.act(o)
     assert bot.last_plan.target["id"] == 4
     bot = MechBot(hello)
-    o = base(observations, t=61.0)
+    o = base(observations, t=121.0)
     o["mechs"] = [drone(o["self"]["pos"], 80)]
     bot.act(o)
     assert "OPENER" not in bot.last_plan.rationale

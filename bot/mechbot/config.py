@@ -76,7 +76,7 @@ class BotConfig:
     # inside 45 m or when hit) from opener_drone_band, shoot crates (1 cube, 50 % weapon), collect every cube,
     # take a laser. Real game (user's scripted bot): 5-9 early cubes placed 1st and 4th, none placed 3rd/9th.
     opener: bool = True
-    opener_s: float = 60.0
+    opener_s: float = 120.0              # C4: was 60
     opener_drone_radius: float = 120.0
     opener_drone_band: tuple = (50.0, 110.0)
     opener_crate_radius: float = 150.0
