@@ -337,14 +337,14 @@ C9 (prefer cube carriers) 4.23.
 
 | id | branch / commit | change | behaviour check (champ-4.42 -> change, 40 seeds) | cubes 20 s / 60 s / end | kills | rear hits | Docker max | board |
 |---|---|---|---|---|---|---|---|---|
-| F1 | f1 `2b8da9d75f8269e96f95ac13e1cd2d199df1ffc7` | no retreat: no low-HP back-off, no cover runs (range-band spacing kept) | **COVER time 8 % -> 0, FIGHT 33 -> 42 %**, kills 2.85 -> 3.30, cubes within 20 s of a kill 3.8 -> 5.4 | 1.10 / 3.92 / 7.72 | 3.30 | 5.9 | 5.8 ms | **4.48: NEW BEST** (confirm run pending) |
+| F1 | f1 `2b8da9d75f8269e96f95ac13e1cd2d199df1ffc7` | no retreat: no low-HP back-off, no cover runs (range-band spacing kept) | **COVER time 8 % -> 0, FIGHT 33 -> 42 %**, kills 2.85 -> 3.30, cubes within 20 s of a kill 3.8 -> 5.4 | 1.10 / 3.92 / 7.72 | 3.30 | 5.9 | 5.8 ms | **4.48, 4.50 (avg ~4.49): CHAMPION -> champ-4.50** |
 | F2 | f2 `f6771c7a2e9d789fc1f7283fa349cb84debadb3e` | a rear hit turns us to that attacker at once (unless our target < 25 % HP); unseen: turn to the bearing | **rear hits NOT down: 5.1 -> 5.5** (same ~12 % share of hits); missed kills 0.28 -> 0.15 | 1.02 / 3.73 / 6.65 | 2.88 | 5.5 | 7.4 ms | pending |
 | F3 | f3 `9d2cfb9e425d332ca1cb72735c959e59e2c7628e` | after the first mech is seen, no farming except cubes within 15 m (C6 kill cubes kept) | **LOOT time 30 -> 12 %, cubes 6.2 -> 3.4**, cubes at 20 s 1.1 -> 0.6 | 0.60 / 1.90 / 3.42 | 2.48 | 4.7 | 7.3 ms | **3.38: DROPPED** (cutting farming costs ~1 point) |
 
 Board summary so far: farm cubes early and at fights (+), never retreat (+), never wander far from fights for
 items (-).
 
-### Single changes on F1 (`2b8da9d75f8269e96f95ac13e1cd2d199df1ffc7`)
+### Single changes on F1 = champ-4.50 (`2b8da9d75f8269e96f95ac13e1cd2d199df1ffc7`)
 
 | id | branch / commit | change | behaviour check (F1 -> change, 40 seeds) | cubes 20 s / 60 s / end | kills | rear hits | Docker max | board |
 |---|---|---|---|---|---|---|---|---|
