@@ -130,7 +130,9 @@ class HeuristicPlanner:
             kp = self._kill_cubes(obs, mem, target, kind)
             if kp is not None:
                 return kp
-        if cfg.opener and t < cfg.opener_s and not urgent and (target is None or (kind == "mech" and target["id"] not in hostile)):
+        # J9: a mech inside threat_radius_mech is fought even during the opener (shoot first, not get shot first)
+        quiet_ok = not cfg.opener_shoot_first and kind == "mech" and target is not None and target["id"] not in hostile
+        if cfg.opener and t < cfg.opener_s and not urgent and (target is None or quiet_ok):
             op = self._opener(obs, npcs, goal)
             if op is not None:
                 return op
