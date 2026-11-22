@@ -33,6 +33,8 @@ class BotConfig:
     lull_laser: bool = True
     lull_laser_radius: float = 60.0
     lull_s: float = 2.0
+    # H4: pre-charge the laser (standing, not under fire, a mech in laser range) so a fight opens with 315
+    laser_precharge: bool = True
     retreat_hp_frac: float = 0.35        # below this, back away from the fight while still facing it (rear x1.5)
 
     # --- zone (section 9). Hold near the edge of the next circle on our side: shortest moves, fewest fights.

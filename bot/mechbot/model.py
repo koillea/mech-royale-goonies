@@ -492,6 +492,20 @@ class MechBot:
             for i, w in enumerate(ws):
                 if w and w["kind"] == "laser" and w.get("charge", 0) > 0:
                     fire[i] = True
+            # H4: open every engagement with a full laser shot: while standing (HOLD/PERCH: charging halves our
+            # speed) and not under fire, face the nearest visible mech in laser range and charge in advance
+            li = next((i for i, w in enumerate(ws) if w and w["kind"] == "laser"), None)
+            if cfg.laser_precharge and li is not None and plan.mode in ("HOLD", "PERCH") \
+                    and t - self.mem.took_damage_t > 2.0 and ws[li]["cooldown"] <= 0.05:
+                rng = ws[li]["stats"].get("range", 280.0)
+                near = [m for m in obs["mechs"] if m["kind"] == "mech" and dist2(m["pos"], pos) < rng]
+                if near:
+                    m = min(near, key=lambda m: dist2(m["pos"], pos))
+                    c = [m["pos"][0], m["pos"][1], m["pos"][2] + self.mech_rules.get("height", 9.0) / 2]
+                    yaw, pitch = aim_at(muzzle, c)
+                    fire[li] = True
+                    self.precharges = getattr(self, "precharges", 0) + (ws[li].get("charge", 0) == 0)
+                    return (yaw, pitch), fire, False
             gun = ws[0] if ws and ws[0] and ws[0]["kind"] == "gun" else None
             reload_ = bool(gun and gun.get("ammo", 12) < gun["stats"].get("mag", 12) * 0.5 and gun.get("reload", 0) == 0
                            and plan.mode in ("HOLD", "LOOT"))
