@@ -96,6 +96,9 @@ def one(job):
             "our_shot_d": us.shot_d, "our_hit_d": us.hit_d,
             "our_laser_t": us.laser_t if not laser else 0.0,
             "their_laser_t": min([f.laser_t for f in foes if f.laser_t is not None] or [None]) if not laser else 0.0,
+            "shot_cls": dict(us.shot_cls), "hit_cls": dict(us.hit_cls), "ttk": list(us.ttk),
+            "their_shot_cls": {k: sum(f.shot_cls.get(k, 0) for f in foes) for k in {k for f in foes for k in f.shot_cls}},
+            "their_hit_cls": {k: sum(f.hit_cls.get(k, 0) for f in foes) for k in {k for f in foes for k in f.hit_cls}},
             "max_ms": max(ms), "p99_ms": sorted(ms)[int(0.99 * (len(ms) - 1))]}
 
 
@@ -138,6 +141,31 @@ def report(name, rs):
     if any(r["kills"] for r in rs) and rs[0].get("kills") is not None:
         print(f"kills per duel {statistics.mean(r['kills'] for r in rs):.2f}; survival median "
               f"{statistics.median(r['survive_t'] for r in rs):.1f} s")
+    for who, sk, hk in (("we", "shot_cls", "hit_cls"), ("they", "their_shot_cls", "their_hit_cls")):
+        sh, ht = {}, {}
+        for r in rs:
+            for k, v in r[sk].items():
+                sh[k] = sh.get(k, 0) + v
+            for k, v in r[hk].items():
+                ht[k] = ht.get(k, 0) + v
+        for wpn in ("gun", "laser"):
+            for axis, idx in (("range", 1), ("target motion", 2)):
+                agg_s, agg_h = {}, {}
+                for k, v in sh.items():
+                    if k.split("|")[0] == wpn:
+                        b = k.split("|")[idx]
+                        agg_s[b] = agg_s.get(b, 0) + v
+                        agg_h[b] = agg_h.get(b, 0) + ht.get(k, 0)
+                if agg_s:
+                    print(f"  {who} {wpn} hit rate by {axis}: " + ", ".join(
+                        f"{b} {100 * agg_h[b] / agg_s[b]:.0f}% ({agg_s[b]})" for b in sorted(agg_s)))
+    ttk = [x for r in rs for x in r["ttk"]]
+    kills = sum(r["kills"] for r in rs)
+    if ttk:
+        print(f"time-to-kill (our first hit -> its death): median {statistics.median(ttk):.1f} s, "
+              f"mean {statistics.mean(ttk):.1f} s over {len(ttk)} kills")
+    print(f"kills before death per duel {kills / n:.2f}; damage taken per kill "
+          f"{sum(r['taken'] for r in rs) / max(kills, 1):.0f}")
     print(f"damage dealt / taken per duel: {statistics.mean(r['dealt'] for r in rs):.0f} / "
           f"{statistics.mean(r['taken'] for r in rs):.0f}")
     print(f"response: max {max(r['max_ms'] for r in rs):.1f} ms, p99 (worst duel) {max(r['p99_ms'] for r in rs):.1f} ms")

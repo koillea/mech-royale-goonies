@@ -5,7 +5,8 @@
 
 Model (their real code is unknown):
 - squad: house bots never target or damage each other (friendly fire is off in engine.py);
-- shared vision: an entrant is known to the squad while any house bot has seen it in the last memory_s;
+- omniscient (default, observed on the board): the squad always knows every entrant's position
+  (SIM_OMNISCIENT=0: known only while any house bot has seen it in the last memory_s);
 - hunters: the first k of a fixed random order of house bots, k = 1 + (house bots dead), all of them once
   t >= SIM_ALL_HUNT_T (default 300 s, "late"); hunters chase the weakest known entrant, or its last known
   position, and fight it at a preferred range;
@@ -32,6 +33,9 @@ ALL_HUNT_T = float(os.environ.get("SIM_ALL_HUNT_T", "300"))
 DEFEND_RANGE = float(os.environ.get("SIM_DEFEND_RANGE", "60"))
 AIM_MULT = float(os.environ.get("SIM_AIM_MULT", "1.0"))
 MEMORY = 5.0
+# Observed on the real board (Sat Nov 21): the house bots ALWAYS know where the entrant is (hiding, cover, roofs
+# and kiting never shook them off). Default on; SIM_OMNISCIENT=0 restores the old shared-vision model.
+OMNISCIENT = os.environ.get("SIM_OMNISCIENT", "1") != "0"
 
 
 def wrap(a: float) -> float:
@@ -86,7 +90,7 @@ class HouseBot:
         entrants = [o for o in m.mechs if o.alive and not o.house]
         known = []
         for o in entrants:
-            if any(h.alive and h.house and h.seen.get(o.id, -1e9) >= m.t - MEMORY for h in m.mechs):
+            if OMNISCIENT or any(h.alive and h.house and h.seen.get(o.id, -1e9) >= m.t - MEMORY for h in m.mechs):
                 sq["last_known"][o.id] = (list(o.pos), m.t)
                 known.append(o)
         hunter = self._is_hunter()

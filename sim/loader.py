@@ -43,7 +43,8 @@ class _FrozenTime:
 
 def _extract(name: str, rev: str) -> str:
     dst = os.path.join(CACHE, name)
-    if not os.path.exists(os.path.join(dst, "bot", "mechbot", "__init__.py")):
+    if not (os.path.exists(os.path.join(dst, "bot", "mechbot", "__init__.py"))
+            or os.path.exists(os.path.join(dst, "bot", "m1.py"))):
         os.makedirs(dst, exist_ok=True)
         data = None
         for r in (rev, "origin/" + rev):          # a branch may exist only as origin/<name> in a fresh clone
@@ -62,8 +63,16 @@ def load_version(name: str, rev: str = None):
     rev = rev or VERSIONS[name]
     modname = "mb_" + name.replace("-", "_")
     if modname in sys.modules:
-        return sys.modules[modname].MechBot
-    pkg = os.path.join(_extract(name, rev), "bot", "mechbot")
+        mod = sys.modules[modname]
+        return getattr(mod, "MechBot", None) or mod.M1Bot
+    root = _extract(name, rev)
+    if not os.path.exists(os.path.join(root, "bot", "mechbot")):       # M1: a one-file bot
+        spec = importlib.util.spec_from_file_location(modname, os.path.join(root, "bot", "m1.py"))
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[modname] = mod
+        spec.loader.exec_module(mod)
+        return mod.M1Bot
+    pkg = os.path.join(root, "bot", "mechbot")
     spec = importlib.util.spec_from_file_location(modname, os.path.join(pkg, "__init__.py"),
                                                   submodule_search_locations=[pkg])
     mod = importlib.util.module_from_spec(spec)
@@ -110,7 +119,19 @@ def factory(name: str):
     else:
         cls = load_version(name)
 
+    # ablations without a commit: SIM_CFG_<name>="field=value,field=value" overrides that version's BotConfig
+    over = os.environ.get("SIM_CFG_" + name.replace("-", "_"))
+
     def make(hello):
+        if over and name != "example":
+            mod = sys.modules["mb_" + name.replace("-", "_")]
+            kw = {}
+            for part in over.split(","):
+                k, v = part.split("=")
+                kw[k] = {"True": True, "False": False}.get(v, v)
+                if isinstance(kw[k], str):
+                    kw[k] = float(v)
+            return cls(hello, mod.BotConfig(**kw))
         bot = cls(hello)
         return bot
     return make

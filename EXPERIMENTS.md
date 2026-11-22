@@ -246,6 +246,47 @@ Only B1 beat the champion, so nothing to combine. Next bold step goes on champ-3
 
 Rule: anything below the champion on the board is reverted; only changes that each beat 3.81 alone get combined.
 
+## Full-offense plan (O1-O3), cube plan (C1-C3) and the minimal bot (M1-M3) - Sun Nov 22
+
+**Sim update (step 0).** protocol.md says nothing about what the house bots know of our position; the user saw on
+the real board that they always know it, so `sim/house.py` now makes them omniscient (default; `SIM_OMNISCIENT=0`
+restores the old shared-vision model). Cube facts from protocol.md section 10: a killed mech drops all its cubes
+plus 2 (a drone 2, a crate 1); the protocol gives no lifetime for cubes (weapons explicitly never despawn) and no
+scatter radius (the sim puts them within 3 m). Max armour 2,981 seen on top bots = 1,400 x 1.4 (10 cubes, the
+stat cap) x 1.15^3 (plating, max 3 stacks): the maximum possible.
+New sim telemetry: hit rate by range and by target motion, time-to-kill (our first hit -> its death), cubes at
+20 s / 60 s, rear hits taken, time in each mode, crashes; `SIM_CFG_<name>` overrides a version's BotConfig.
+
+**Time-to-kill is fire-rate bound, not aim bound (sim).** The gun sustains 12 x 45 / (12 x 0.24 + 2.4) = 102
+damage/s, so 1,400 HP takes >= 13.7 s at 100 % hits; at our 80 % it is 17 s, the measured median. Laser adds
+~131/s (hitscan), lightning ~240/s inside 45 m; both slots fire together.
+
+Duels (300 seeds, omniscient expert hunters):
+
+| | 1v1 win | gun hit rate | median TTK | 1v2 kills | 1v3 kills | dmg taken per kill (1v2) |
+|---|---|---|---|---|---|---|
+| champ-3.81 | 64.7 % | 80 % | 16.9 s | 0.29 | - | 4,804 |
+| O1 aim | 62.3 % (net -7, noise) | 81 % | 16.5 s | 0.34 | 0.18 | 4,228 |
+| O2 offense (on O1) | 66.0 % (net +11 vs O1, noise) | 89 % | 13.2 s | 0.30 | 0.19 | 4,571 |
+
+O1 ablation: the 0.05 s decision-delay term over-led (net -27 wins), so it was removed; acceleration + strafe
+rhythm alone are level with the champion. O1 hit rate by target motion: still 88 %, strafing 84 %, jumping 76 %.
+
+Full matches (sim, same seeds, omniscient house bots):
+
+| id | commit | change | score | kills | cubes 20 s / 60 s / end | max armour | rear hits | max ms | board |
+|---|---|---|---|---|---|---|---|---|---|
+| champ-3.81 | `85b2a8481b793f283804987b5e1ac7cb7108a389` | - | 3.25 (40 seeds) | 2.02 | 0.88 / 1.62 / 2.27 | 1,552 | 4.2 | 18.6 | 3.81 |
+| O1 | `9a6da6b9b4cf2a1e110c98f47fa6e94894d9bf66` | lead with acceleration, gravity, strafe rhythm | 3.42 (+0.17, se 0.54) | 2.40 | 0.88 / 1.48 / 2.88 | 1,599 | 4.9 | 13.0 | pending |
+| O2 | `f37a2749c1a27d44791fac223c7bac01b8f614c7` | on O1: no cover/retreat, lock-on, engage all in range, close to 30-70 m, D1 legs | **1.88 (-1.38, se 0.46: WORSE)**; 65 % dead in the first minute | 1.40 | 0.45 / 1.15 / 1.20 | 1,490 | 5.6 | 14.7 | pending |
+| C1 | `251394ff0b44a2b206082df31060e382b2590a39` | first 60 s: drones from 50-110 m, crates, cubes <= 120 m, laser; plating/armour then gun upgrades | **4.60 (+1.35, se 0.76)** | 3.12 | 1.10 / 3.35 / 5.80 | 1,785 | 5.6 | 19.8 | pending |
+| M1 | `305638e77d9aa6b3788a713801324a990a9be1ef` | separate ~300-line cube-first bot, no map (30 seeds) | 2.73 (-0.37 vs 3.10, se 0.75) | 1.87 | 0.57 / 2.33 / 3.87 | 1,692 | 7.2 | 0.6 | pending |
+| M2 | `4aa32ed6fdd64b61c976bcbeb451ea98913a17b5` | M1 + fight range 120 m | 2.80 (-0.30, se 0.77) | 1.87 | 0.37 / 1.77 / 3.03 | 1,659 | 4.7 | 0.5 | pending |
+| M3 | `802d0b980514bc284c2ed3c5f887a721b8b0df37` | M1 + no farming after 90 s | 2.67 (-0.43, se 0.71) | 2.03 | 0.57 / 2.33 / 3.13 | 1,647 | 5.6 | 1.3 | pending |
+
+M1 time in each mode (sim): FIGHT 33 %, CUBE 21 %, ROAM 10 %, DRONE 9 %, ZONE 8 %, CRATE 7 %, PICKUP 7 %, HEAL 5 %.
+All pass kit check.py in Docker (max 5.6-7.0 ms for O/C, 1.1-2.8 ms for M). C2 and C3 are not built yet.
+
 ## Board results (all official runs, 48 matches each)
 
 | board run | bot commit | experiment | the one change | sim estimate | board |

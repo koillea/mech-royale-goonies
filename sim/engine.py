@@ -88,6 +88,11 @@ class Mech:
         self.dmg_taken = 0.0
         self.shot_d: List[float] = []     # distance to the nearest enemy at each gun shot
         self.hit_d: List[float] = []      # distance at each gun hit on a mech
+        self.boosting = False
+        self.shot_cls: Dict[str, int] = {}  # (weapon, target motion) -> shots aimed at the nearest enemy
+        self.hit_cls: Dict[str, int] = {}   # ... and hits on it
+        self.first_hit: Dict[int, float] = {}   # attacker id -> time of its first hit on us
+        self.ttk: List[float] = []        # our kills: seconds from our first hit to its death
 
     def _weapon(self, kind: str) -> Dict[str, Any]:
         w = {"kind": kind, "cooldown": 0.0}
@@ -295,6 +300,7 @@ class Match:
             except Exception as e:  # a crashing bot idles (protocol section 2)
                 if self.log:
                     print(f"{m.name} act() raised {e!r}")
+                m.crashes = getattr(m, "crashes", 0) + 1
                 act = {}
             ms = (time.perf_counter() - t0) * 1000
             if gc_off:
@@ -304,7 +310,7 @@ class Match:
             m.events, m.sounds, m.beams = [], [], []
             if not m.house:
                 pl = getattr(m.ctrl, "last_plan", None)
-                m.mode_hist.append((self.t, getattr(pl, "mode", None)))
+                m.mode_hist.append((self.t, getattr(pl, "mode", None) or getattr(m.ctrl, "mode", None)))
                 m.hp_hist.append((self.t, m.hp, m.energy))
                 if len(m.hp_hist) > 200:
                     del m.hp_hist[:50]
@@ -532,6 +538,7 @@ class Match:
             n = 1.0
         charging = any(w and w["kind"] == "laser" and w.get("charge", 0) > 0 for w in m.slots)
         boosting = bool(c.get("boost")) and m.energy > 0.5
+        m.boosting = boosting and n > 0.1
         speed = s["boost_speed"] if (boosting and m.grounded and n > 0.1) else s["walk_speed"]
         if charging:
             speed *= s["charge_move_mult"]
@@ -613,7 +620,8 @@ class Match:
                          math.sin(pit) * ws["speed"]]
                     self.bullets.append({"id": self._nid("proj"), "kind": "gun", "pos": p, "vel": v, "owner": m.id,
                                          "dmg": ws["damage"] * m.dmg_mult(self.rules), "ttl": ws["range"] / ws["speed"],
-                                         "weapon": "gun", "r": self.rules["projectile"]["gun_radius"]})
+                                         "weapon": "gun", "r": self.rules["projectile"]["gun_radius"],
+                                         "cls": self._shot_cls(m, "gun")})
                     m.shots["gun"] = m.shots.get("gun", 0) + 1
                     others = [math.hypot(o.pos[0] - m.pos[0], o.pos[1] - m.pos[1]) for o in self.mechs
                               if o.alive and o is not m and not (o.house and m.house)]
@@ -689,8 +697,35 @@ class Match:
                 return None
         return best
 
+    def _shot_cls(self, m: Mech, weapon: str) -> Optional[str]:
+        """Telemetry: weapon, range bin and motion of the nearest enemy mech at the moment m fires."""
+        best = None
+        for o in self.mechs:
+            if o.alive and o is not m and not (o.house and m.house):
+                d = math.hypot(o.pos[0] - m.pos[0], o.pos[1] - m.pos[1])
+                if best is None or d < best[0]:
+                    best = (d, o)
+        if best is None:
+            return None
+        d, o = best
+        sp = math.hypot(o.vel[0], o.vel[1])
+        if not o.grounded:
+            mot = "jumping"
+        elif o.boosting:
+            mot = "boosting"
+        elif sp < 1.5:
+            mot = "still"
+        else:
+            ux, uy = (o.pos[0] - m.pos[0]) / max(d, 1e-6), (o.pos[1] - m.pos[1]) / max(d, 1e-6)
+            mot = "strafing" if abs(o.vel[0] * uy - o.vel[1] * ux) > 0.6 * sp else "radial"
+        rb = "0-50" if d < 50 else "50-100" if d < 100 else "100-150" if d < 150 else "150+"
+        k = f"{weapon}|{rb}|{mot}"
+        m.shot_cls[k] = m.shot_cls.get(k, 0) + 1
+        return k
+
     def _laser(self, m: Mech, w, ws):
         m.shots["laser"] = m.shots.get("laser", 0) + 1
+        cls = self._shot_cls(m, "laser")
         frac = min(w["charge"], ws["charge"]) / ws["charge"]
         dmg = ws["damage"] * (ws["min_frac"] + (1 - ws["min_frac"]) * frac) * m.dmg_mult(self.rules)
         p, d = self._muzzle(m)
@@ -699,6 +734,8 @@ class Match:
         if hit is not None:
             end = [p[0] + d[0] * hit[2], p[1] + d[1] * hit[2], p[2] + d[2] * hit[2]]
             self._hit(m, hit[0], hit[1], dmg, "laser", p)
+            if hit[0] == "mech" and cls:
+                m.hit_cls[cls] = m.hit_cls.get(cls, 0) + 1
         for o in self.mechs:
             if o.alive and o is not m and (self._sees(o, p, 0.1) or self._sees(o, end, 0.1)):
                 o.beams.append({"by": m.id, "kind": "laser", "path": [p, end], "age": 0.0})
@@ -779,6 +816,8 @@ class Match:
             if hit is not None and self.los(p0, [p0[0] + d[0] * hit[2], p0[1] + d[1] * hit[2], p0[2] + d[2] * hit[2]]):
                 if b["owner"] < 100:
                     self._hit(owner, hit[0], hit[1], b["dmg"], b["weapon"], p0)
+                    if hit[0] == "mech" and b.get("cls"):
+                        owner.hit_cls[b["cls"]] = owner.hit_cls.get(b["cls"], 0) + 1
                 elif hit[0] == "mech":
                     self._damage(hit[1], b["dmg"], None, "npc", p0, npc_id=b["owner"])
                 continue
@@ -832,6 +871,8 @@ class Match:
         if kind == "npc" and att is not None and not att.house and obj["hp"] - dmg <= 0:
             self.telemetry["drone_kills"] += 1
         if kind == "mech":
+            if att is not None:
+                obj.first_hit.setdefault(att.id, self.t)
             done = self._damage(obj, dmg, att, weapon, origin)
             att.hits[weapon] = att.hits.get(weapon, 0) + 1
             if weapon == "gun":
@@ -868,6 +909,7 @@ class Match:
                 rear = abs(wrap(bearing - m.aim[0])) > math.radians(m.stats["front_arc_deg"]) / 2
                 if rear:
                     dmg *= m.stats["rear_mult"]
+                    m.rear_hits = getattr(m, "rear_hits", 0) + 1
                 dmg *= max(0.0, 1 - m.stats.get("armor", 0.0))
         m.hp -= dmg
         m.dmg_taken += dmg
@@ -910,6 +952,8 @@ class Match:
         m.place = self._place_base
         if killer is not None and killer is not m:
             killer.kills += 1
+            if killer.id in m.first_hit:
+                killer.ttk.append(self.t - m.first_hit[killer.id])
             killer.events.append({"type": "kill", "target": m.id})
         for w in m.slots:
             if w and w["kind"] != "gun":
@@ -947,6 +991,7 @@ class Match:
                     best.max_hp += gain
                     best.hp += gain
                 best.events.append({"type": "pickup", "cubes": best.cubes})
+                best.cube_t = getattr(best, "cube_t", []) + [self.t]
                 self._maybe_offer(best)
 
     def _npcs(self):

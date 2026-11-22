@@ -77,7 +77,10 @@ def one(job):
         "upgrades": me.upg_t, "laser_t": me.laser_t, "cubes": me.cubes, "missed": missed,
         "max_ms": max(ms), "avg_ms": sum(ms) / len(ms), "drone_kills": m.telemetry["drone_kills"],
         "ms_all": [round(x, 2) for x in ms],
-        "max_hp": me.max_hp, "plating": sum(1 for _, u in me.upg_t if u == "plating"),
+        "max_hp": me.max_hp, "cube_t": list(getattr(me, "cube_t", [])), "rear_hits": getattr(me, "rear_hits", 0),
+        "crashes": getattr(me, "crashes", 0),
+        "mode_share": dict(collections.Counter(md for tt, md in me.mode_hist)),
+        "hits_taken": sum(1 for x in me.dmg_log if x[1] is not None and x[1] < 100), "plating": sum(1 for _, u in me.upg_t if u == "plating"),
         "laser_by_120": me.laser_t is not None and me.laser_t <= 120.0,
         "first_hit_t": next((x[0] for x in me.dmg_log), None),
         "first_hit_by": next((("drone" if (x[1] or 0) >= 100 else "house" if x[1] is not None else x[2]) for x in me.dmg_log), None),
@@ -165,7 +168,11 @@ def key_metrics(rs):
         "deaths in COVER": sum(1 for r in dead if r["mode"] == "COVER") / n,
         "dead in first 60 s": sum(1 for r in dead if r["death_t"] < 60) / n,
         "full-to-dead in 15 s": sum(1 for r in full15 if r["hp15"] >= 1300) / max(len(full15), 1),
+        "cubes at 20 s": statistics.mean(sum(1 for x in r["cube_t"] if x <= 20) for r in rs),
+        "cubes at 60 s": statistics.mean(sum(1 for x in r["cube_t"] if x <= 60) for r in rs),
         "cubes/match": statistics.mean(r["cubes"] for r in rs),
+        "rear hits taken/match": statistics.mean(r["rear_hits"] for r in rs),
+        "mech hits taken/match": statistics.mean(r["hits_taken"] for r in rs),
         "upgrades/match": statistics.mean(len(r["upgrades"]) for r in rs),
         "plating/match": statistics.mean(r["plating"] for r in rs),
         "laser by 2:00": sum(1 for r in rs if r["laser_by_120"]) / n,
@@ -175,6 +182,7 @@ def key_metrics(rs):
         "p99 ms": sorted(x for r in rs for x in r["ms_all"])[int(0.99 * sum(len(r["ms_all"]) for r in rs))],
         "p99.9 ms": sorted(x for r in rs for x in r["ms_all"])[int(0.999 * sum(len(r["ms_all"]) for r in rs))],
         "ticks > 25 ms": sum(1 for r in rs for x in r["ms_all"] if x > 25),
+        "crashes (act raised)": sum(r["crashes"] for r in rs),
     }
 
 
@@ -185,6 +193,12 @@ def compare(results, champion):
     print(f"{'metric':26}" + "".join(f"{nm:>12}" for nm in names))
     for k in km[names[0]]:
         print(f"{k:26}" + "".join(f"{km[nm][k]:12.2f}" for nm in names))
+    for nm in names:
+        mc = collections.Counter()
+        for r in results[nm]:
+            mc.update(r["mode_share"])
+        tot = sum(mc.values()) or 1
+        print(f"time in each mode, {nm}: " + ", ".join(f"{k} {100 * v / tot:.0f}%" for k, v in mc.most_common(9)))
     if len(names) < 2:
         return
     ch = {r["seed"]: r["pts"] for r in results[champion]}
