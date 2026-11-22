@@ -37,9 +37,20 @@ class Memory:
         self.dmg_by: Optional[int] = None
         self.sounds: List[Tuple[float, float, str]] = []   # (t, bearing, dist)
         self.took_damage_t = -1e9
+        self.seen_pos: Dict[int, Tuple[float, float, float]] = {}   # mech id -> last seen (x, y, t)
+        self.kill_spot: Optional[Tuple[float, float, float]] = None  # C6: where our last kill died, and when
+        self.kills = 0
 
     def ingest(self, obs: Dict[str, Any]) -> None:
         t = obs["t"]
+        for m in obs.get("mechs", []):
+            if m.get("kind") == "mech":
+                self.seen_pos[m["id"]] = (m["pos"][0], m["pos"][1], t)
+        for e in obs.get("events", []):
+            if e.get("type") == "kill" and e.get("target") in self.seen_pos:
+                x, y, _ = self.seen_pos[e["target"]]
+                self.kill_spot = (x, y, t)
+                self.kills += 1
         for e in obs.get("events", []):
             if e.get("type") == "damaged":
                 self.took_damage_t = t

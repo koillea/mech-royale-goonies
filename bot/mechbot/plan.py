@@ -126,6 +126,10 @@ class HeuristicPlanner:
         hostile = mem.hostile_ids(t, cfg.provoked_s)
         target, kind, why = self._pick_target(obs, mechs, npcs, hostile)
 
+        if cfg.kill_cubes and not urgent and mem.kill_spot is not None:
+            kp = self._kill_cubes(obs, mem, target, kind)
+            if kp is not None:
+                return kp
         if cfg.opener and t < cfg.opener_s and not urgent and (target is None or (kind == "mech" and target["id"] not in hostile)):
             op = self._opener(obs, npcs, goal)
             if op is not None:
@@ -167,6 +171,30 @@ class HeuristicPlanner:
         mode = "PERCH" if perched else ("CLIMB" if hold is not None and hold.climbing else "HOLD")
         return Plan(mode, goal=goal, face_bearing=heard,
                     rationale=f"{mode} {where}" + (" heard" if heard is not None else ""))
+
+    def _kill_cubes(self, obs, mem, target, kind) -> Optional[Plan]:
+        """C6: after a kill, its cubes (all it carried + 2) lie within a few metres of where it died. Go there
+        now, still fighting whoever is targeted; give up once there with nothing visible, or after kill_cube_s."""
+        cfg, t, pos = self.cfg, obs["t"], obs["self"]["pos"]
+        kx, ky, kt = mem.kill_spot
+        d = math.hypot(kx - pos[0], ky - pos[1])
+        (cx, cy), cr = zone_now(obs["zone"], t)
+        if t - kt > cfg.kill_cube_s or d > cfg.kill_cube_radius or math.hypot(kx - cx, ky - cy) > cr - 5.0:
+            mem.kill_spot = None
+            return None
+        cubes = [c for c in obs.get("cubes", []) if math.hypot(c["pos"][0] - kx, c["pos"][1] - ky) < 8.0]
+        if cubes:
+            c = min(cubes, key=lambda c: dist2(c["pos"], pos))
+            goal = (c["pos"][0], c["pos"][1])
+        elif d > 3.0:
+            goal = (kx, ky)                    # not in view yet: walk to the spot
+        else:
+            mem.kill_spot = None               # there, nothing left
+            return None
+        if target is not None:
+            return Plan("FIGHT", goal=goal, target=target, target_kind=kind, collect=True,
+                        rationale=f"FIGHT +kill cubes {d:.0f}m (C6)")
+        return Plan("LOOT", goal=goal, boost=d > 30, rationale=f"LOOT kill cubes {d:.0f}m (C6)")
 
     def _opener(self, obs, npcs, zgoal) -> Optional[Plan]:
         """C1: the first minute is for cubes. Cheapest next item: a visible cube, a laser, a drone (shot from
